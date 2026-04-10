@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script src="optcg_auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPTCG Complete Reference — Hafiz</title>
+<style>
+:root { --bg: #0a0a12; --card: #12121e; --card-owned: #0d1f0d; --border: #1a1a2e; --border-owned: #1b5e20; --gold: #ffd600; --cyan: #00e5ff; --pink: #e040fb; --amber: #ffab00; --green: #69f0ae; --red: #ff5252; --blue: #42a5f5; --purple: #7c4dff; --muted: #666; --text: #e0e0e0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); padding: 10px; }
+.container { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; color: var(--gold); text-align: center; padding: 14px 0 4px; }
+.subtitle { font-size: 10px; color: #78909c; text-align: center; margin-bottom: 12px; }
+.controls { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.controls input, .controls select { padding: 8px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 12px; font-family: inherit; }
+.controls input { flex: 1; min-width: 160px; }
+.legend { display: flex; gap: 8px; flex-wrap: wrap; font-size: 10px; padding: 6px 8px; background: var(--card); border-radius: 6px; margin-bottom: 10px; }
+.legend span { display: flex; align-items: center; gap: 3px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.stats { font-size: 11px; margin-bottom: 12px; display: flex; gap: 12px; }
+
+.set { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; overflow: hidden; background: var(--card); }
+.set.owned { border-color: var(--border-owned); background: var(--card-owned); }
+.set-header { padding: 10px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.set-header:hover { background: rgba(255,255,255,0.03); }
+.set-code { font-size: 14px; font-weight: 700; }
+.set-code.owned { color: var(--green); }
+.set-name { font-size: 12px; color: #aaa; margin-left: 8px; }
+.set-theme { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.arrow { font-size: 16px; color: #555; }
+
+.set-body { display: none; padding: 0 12px 12px; }
+.set-body.open { display: block; }
+
+.owned-badge { font-size: 10px; color: var(--green); background: #1b3a1b; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; display: inline-block; }
+
+.version-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.version-box { padding: 8px; background: var(--border); border-radius: 6px; font-size: 11px; }
+.version-box .flag { font-weight: 700; margin-bottom: 3px; }
+.version-box .exclusive { font-size: 10px; margin-top: 4px; }
+
+.tab-buttons { display: flex; gap: 4px; margin-bottom: 8px; }
+.tab-btn { flex: 1; padding: 6px; font-size: 11px; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; }
+.tab-btn.active-chase { background: var(--gold); color: #000; }
+.tab-btn.active-staples { background: var(--green); color: #000; }
+.tab-btn.active-invest { background: #ffab00; color: #000; }
+.tab-btn.inactive { background: #222; color: #888; }
+
+.card-row { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; padding: 5px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-bottom: 3px; text-decoration: none; color: inherit; font-size: 11px; border-left: 3px solid #555; }
+.card-row:hover { background: rgba(255,255,255,0.05); }
+.card-name { font-weight: 600; color: #fff; }
+.card-id { color: var(--muted); font-size: 10px; }
+.card-rarity { font-size: 10px; }
+.price-label { font-size: 9px; }
+.price-val { font-weight: 600; }
+
+.staple-row { display: flex; justify-content: space-between; padding: 5px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-bottom: 3px; text-decoration: none; color: inherit; font-size: 11px; border-left: 3px solid #555; }
+.staple-row:hover { background: rgba(255,255,255,0.05); }
+.staple-why { text-align: right; max-width: 55%; color: #aaa; font-size: 10px; line-height: 1.3; }
+
+.pull-rates { padding: 10px; background: var(--card); border-radius: 8px; margin: 14px 0; font-size: 11px; }
+.pull-rates h3 { color: var(--gold); font-size: 13px; margin-bottom: 6px; }
+.pull-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border); }
+
+.footer { text-align: center; font-size: 9px; color: #444; padding: 8px 0 20px; }
+.no-results { text-align: center; color: var(--muted); padding: 20px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>⚓ OPTCG COMPLETE REFERENCE</h1>
+<p class="subtitle">All Sets · EN/JPN Split · Chase Cards · Competitive Staples · 3 Apr 2026 · Owner: Hafiz</p>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search card, set, or theme..." oninput="filterSets()">
+  <select id="filter" onchange="filterSets()">
+    <option value="all">All Sets</option>
+    <option value="owned">🟢 My Collection</option>
+    <option value="notOwned">Not Owned</option>
+    <option value="standard">Boosters (OP)</option>
+    <option value="extra">Extra Boosters (EB)</option>
+    <option value="premium">Premium (PRB/SBP)</option>
+    <option value="promo">Promos (Event/Prize/Winner)</option>
+    <option value="other">Other (IB/DP/TS/TC/PCC/CS/LT/ST)</option>
+  </select>
+</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:#ffd600"></span> Manga/Comic</span>
+  <span><span class="dot" style="background:#e040fb"></span> SP</span>
+  <span><span class="dot" style="background:#00e5ff"></span> Alt Art ★</span>
+  <span><span class="dot" style="background:#ffab00"></span> Gold DON</span>
+  <span><span class="dot" style="background:#ff6d00"></span> God/Demon</span>
+  <span><span class="dot" style="background:#69f0ae"></span> Leader</span>
+  <span><span class="dot" style="background:#7c4dff"></span> TR</span>
+</div>
+
+<div class="stats" id="stats"></div>
+<div id="sets-container"></div>
+
+<div class="pull-rates">
+  <h3>📊 Pull Rate Quick Reference</h3>
+  <div class="pull-row"><span style="color:#aaa">SR</span><span style="color:#888">~3/JPN box, ~8–10/EN box (guaranteed)</span></div>
+  <div class="pull-row"><span style="color:#ffd600">SEC</span><span style="color:#888">~1/box (guaranteed JPN — gambling law)</span></div>
+  <div class="pull-row"><span style="color:#00e5ff">SR Alt Art ★</span><span style="color:#888">~1/JPN box, ~2–3/EN box</span></div>
+  <div class="pull-row"><span style="color:#e040fb">SP</span><span style="color:#888">~1 per 3–5 boxes</span></div>
+  <div class="pull-row"><span style="color:#7c4dff">TR (EN only)</span><span style="color:#888">~0–1 per box</span></div>
+  <div class="pull-row"><span style="color:#ffd600">Manga Rare</span><span style="color:#888">~1 per case (12 boxes)</span></div>
+  <div class="pull-row"><span style="color:#ff1744">Red Manga (OP13)</span><span style="color:#888">~1 per 4–6 cases</span></div>
+  <div class="pull-row"><span style="color:#ff6d00">God Pack (PRB-01)</span><span style="color:#888">~1 per 1,000 boxes</span></div>
+  <div class="pull-row"><span style="color:#ffab00">Gold DON God Pack</span><span style="color:#888">~1 per 15–20 cases</span></div>
+  <div class="pull-row"><span style="color:#b71c1c">Demon Pack (OP13)</span><span style="color:#888">~1 per 10–20 cases</span></div>
+</div>
+
+<p class="footer">Prices in SGD (approx. Mar–Apr 2026, converted at 1 USD = 1.35 SGD) · Sources: TCGPlayer / PriceCharting / eBay / Mercari / SNKRDUNK<br>JPN prices with ¥ symbol remain in JPY · Tap any card → Limitless TCG base page (scroll down to see all versions + prices side by side)</p>
+</div>
+
+<script>
+const LINK = (id, rarity) => {
+  if (!id || !id.includes("-") || id.includes("GP") || id.includes("DON") || id === "Various" || id.endsWith("-SP")) {
+    return `https://onepiece.limitlesstcg.com/cards?q=${encodeURIComponent(id)}`;
+  }
+  return `https://onepiece.limitlesstcg.com/cards/${id}`;
+};
+
+function rarityColor(r) {
+  if (!r) return "#555";
+  if (r.includes("Red Manga")) return "#ff1744";
+  if (r.includes("Manga") || r.includes("Comic")) return "#ffd600";
+  if (r.includes("God Pack") || r.includes("Demon")) return "#ff6d00";
+  if (r.includes("Gold")) return "#ffab00";
+  if (r.includes("SP")) return "#e040fb";
+  if (r.includes("AA") || r.includes("★")) return "#00e5ff";
+  if (r.includes("SEC")) return "#ffd600";
+  if (r.includes("TR")) return "#7c4dff";
+  if (r.startsWith("L")) return "#69f0ae";
+  return "#78909c";
+}
+
+const SETS = [
+{code:"OP-01",name:"Romance Dawn",theme:"East Blue & Grand Line Intro",jpn:"Jul 2022",en:"Dec 2022",owned:false,od:"",jpnEx:"No TR, No God Pack",enEx:"Pre-TR era",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Shanks (Manga Rare)",id:"OP01-120",r:"SEC Manga",en:"S$878–1,350+",jp:"¥99,800 (~S$878)"},
+{c:"Nami (Manga Rare)",id:"OP01-016",r:"R Manga",en:"S$675–1,026",jp:"¥118,000 (~S$1,026)"},
+{c:"Yamato (SEC)",id:"OP01-121",r:"SEC",en:"S$68–135",jp:"S$40–81"},
+{c:"Shanks (SEC Alt Art)",id:"OP01-120",r:"SEC AA ★",en:"S$270–540",jp:"S$135–338"},
+{c:"Roronoa Zoro (SR Alt Art)",id:"OP01-025",r:"SR AA ★",en:"S$68–135",jp:"S$40–81"}
+],staples:[
+{c:"Nami",id:"OP01-016",r:"R",w:"Searcher staple across multiple decks"},
+{c:"Roronoa Zoro",id:"OP01-025",r:"SR",w:"Red aggro staple"},
+{c:"Dracule Mihawk",id:"OP01-070",r:"SR",w:"Early removal staple"}
+]},
+
+{code:"OP-02",name:"Paramount War",theme:"Marineford War — First Black color cards",jpn:"Nov 2022",en:"Mar 2023",owned:false,od:"",jpnEx:"No TR",enEx:"Pre-TR era",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Portgas D. Ace (Comic Parallel)",id:"OP02-013",r:"SR Manga",en:"S$1,613+",jp:"¥148,000 (~S$1,114)"},
+{c:"Uta (SEC)",id:"OP02-120",r:"SEC",en:"S$68–135",jp:"S$40–81"},
+{c:"Edward Newgate (Leader Alt Art)",id:"OP02-001",r:"L AA ★",en:"S$108–202",jp:"S$68–108"},
+{c:"Kuzan (SEC Alt Art)",id:"OP02-121",r:"SEC AA ★",en:"S$108–162",jp:"S$54–94"}
+],staples:[
+{c:"Portgas D. Ace",id:"OP02-013",r:"SR",w:"Whitebeard Pirates staple"},
+{c:"Borsalino",id:"OP02-114",r:"SR",w:"Navy removal piece"}
+]},
+
+{code:"OP-03",name:"Pillars of Strength",theme:"Wano / Supernovas / Wanted Posters introduced",jpn:"Jan 2023",en:"Jun 2023",owned:false,od:"",jpnEx:"No TR, First SP cards",enEx:"Pre-TR era",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Sogeking (Manga Rare)",id:"OP03-122",r:"SEC Manga",en:"S$567–878",jp:"¥64,800 (~S$567)"},
+{c:"Charlotte Katakuri (SEC)",id:"OP03-123",r:"SEC",en:"S$68–135",jp:"S$40–81"},
+{c:"Charlotte Katakuri (SEC Alt Art)",id:"OP03-123",r:"SEC AA ★",en:"S$135–270",jp:"S$81–162"}
+],staples:[
+{c:"Charlotte Katakuri",id:"OP03-099",r:"SR",w:"Big Mom deck staple"},
+{c:"Eustass Kid (Leader)",id:"OP03-001",r:"L",w:"Supernovas archetype"}
+]},
+
+{code:"OP-04",name:"Kingdoms of Intrigue",theme:"Dressrosa / Alabasta",jpn:"May 2023",en:"Sep 2023",owned:false,od:"",jpnEx:"No TR",enEx:"Pre-TR era",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Sabo (Manga Rare)",id:"OP04-083",r:"SR Manga",en:"S$783–1,215",jp:"¥89,800 (~S$783)"},
+{c:"Nefeltari Vivi (SEC)",id:"OP04-118",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Donquixote Rosinante (SEC)",id:"OP04-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Nefeltari Vivi (SEC Alt Art)",id:"OP04-118",r:"SEC AA ★",en:"S$81–162",jp:"S$40–94"},
+{c:"Donquixote Rosinante (SEC Alt Art)",id:"OP04-119",r:"SEC AA ★",en:"S$81–162",jp:"S$40–94"}
+],staples:[
+{c:"Donquixote Doflamingo (10-cost)",id:"OP04-031",r:"SR",w:"Green control finisher"},
+{c:"Sabo",id:"OP04-083",r:"SR",w:"Revolutionary Army staple"},
+{c:"Rebecca",id:"OP04-039",r:"R",w:"Dressrosa searcher"}
+]},
+
+{code:"OP-05",name:"Awakening of the New Era",theme:"Gear 5 / New Era — Most impactful set",jpn:"Aug 2023",en:"Dec 2023",owned:false,od:"",jpnEx:"No TR",enEx:"Pre-TR era",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Monkey D. Luffy Gear 5 (Manga Rare)",id:"OP05-119",r:"SEC Manga",en:"S$2,700–3,983",jp:"¥428,000 (~S$3,983)"},
+{c:"Trafalgar Law (Manga Rare)",id:"OP05-069",r:"SR Manga",en:"S$945–1,114",jp:"¥128,000 (~S$945)"},
+{c:"Eustass Kid (Manga Rare)",id:"OP05-074",r:"SR Manga",en:"~S$878",jp:"¥99,800 (~S$878)"},
+{c:"Kaido (SEC)",id:"OP05-118",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Kaido (SEC Alt Art)",id:"OP05-118",r:"SEC AA ★",en:"S$68–135",jp:"S$34–81"},
+{c:"Luffy Gear 5 (SEC Alt Art)",id:"OP05-119",r:"SEC AA ★",en:"S$270–540",jp:"S$162–338"},
+{c:"Oda Signature Luffy (Gold Stamp)",id:"OP05-119",r:"SP Signed Gold",en:"S$3,780+",jp:"¥400,000+"}
+],staples:[
+{c:"Monkey D. Luffy (Gear 5, 10-cost)",id:"OP05-119",r:"SEC",w:"Defines multiple archetypes"},
+{c:"Trafalgar Law",id:"OP05-069",r:"SR",w:"Heart Pirates key piece"},
+{c:"Eustass Kid",id:"OP05-074",r:"SR",w:"Supernovas finisher"},
+{c:"Sanji (San-Gorou)",id:"OP05-065",r:"R",w:"Meta staple across formats"}
+]},
+
+{code:"OP-06",name:"Wings of the Captain",theme:"Crew Lieutenants — TR introduced for EN",jpn:"Nov 2023",en:"Mar 2024",owned:false,od:"",jpnEx:"No TR in JPN",enEx:"Treasure Rare introduced (EN/FR/CN only)",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Roronoa Zoro (Manga Rare)",id:"OP06-118",r:"SEC Manga",en:"S$878+",jp:"¥99,800 (~S$878)"},
+{c:"Sanji (Manga Rare)",id:"OP06-119",r:"SEC Manga",en:"S$562+",jp:"~S$338"},
+{c:"Roronoa Zoro (SEC Alt Art)",id:"OP06-118",r:"SEC AA ★",en:"S$135–270",jp:"S$81–162"},
+{c:"Sanji (SEC Alt Art)",id:"OP06-119",r:"SEC AA ★",en:"S$108–202",jp:"S$54–108"}
+],staples:[
+{c:"Charlotte Pudding",id:"OP06-047",r:"SR",w:"Yellow draw engine"},
+{c:"Gecko Moria",id:"OP06-086",r:"SR",w:"Black recursion (BANNED)"},
+{c:"Vinsmoke Reiju (Leader)",id:"OP06-002",r:"L",w:"Germa 66 archetype"}
+]},
+
+{code:"OP-07",name:"500 Years in the Future",theme:"Egghead / Vegapunk",jpn:"Feb 2024",en:"Jun 2024",owned:false,od:"",jpnEx:"No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Rob Lucci (Manga Rare)",id:"OP07-118",r:"SEC Manga",en:"S$405–675",jp:"S$202–405"},
+{c:"Monkey D. Luffy (SEC)",id:"OP07-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Monkey D. Luffy (SEC Alt Art)",id:"OP07-119",r:"SEC AA ★",en:"S$135–270",jp:"S$81–162"}
+],staples:[
+{c:"Rob Lucci (Leader)",id:"OP07-001",r:"L",w:"Black control archetype"},
+{c:"Jewelry Bonney (Leader)",id:"OP07-019",r:"L",w:"Disruption archetype — Boa Hancock counter"},
+{c:"Sengoku",id:"OP07-046",r:"SR",w:"Searcher for Seven Warlords type"},
+{c:"Kaku",id:"OP07-080",r:"R",w:"CP0/SWORD support"}
+]},
+
+{code:"OP-08",name:"Two Legends",theme:"Roger & Whitebeard — Mandala SP backgrounds",jpn:"May 2024",en:"Sep 2024",owned:false,od:"",jpnEx:"No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Silvers Rayleigh (Manga Rare)",id:"OP08-118",r:"SEC Manga",en:"S$540–810",jp:"S$270–473"},
+{c:"Kaido & Linlin (SEC)",id:"OP08-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Silvers Rayleigh (SEC Alt Art)",id:"OP08-118",r:"SEC AA ★",en:"S$135–270",jp:"S$68–135"},
+{c:"Kaido & Linlin (SEC Alt Art)",id:"OP08-119",r:"SEC AA ★",en:"S$68–135",jp:"S$40–81"},
+{c:"Jewelry Bonney (SP)",id:"ST02-007",r:"SP",en:"S$176–405",jp:"S$108–202"},
+{c:"Charlotte Pudding (SP)",id:"OP03-112",r:"SP",en:"S$108–202",jp:"S$68–108"},
+{c:"Portgas D. Ace (SP)",id:"ST02-013",r:"SP",en:"S$135–219",jp:"S$81–135"},
+{c:"Tashigi (SP)",id:"ST06-006",r:"SP",en:"S$81–135",jp:"S$40–81"},
+{c:"Queen (SP)",id:"ST04-005",r:"SP",en:"S$81–162",jp:"S$40–94"},
+{c:"Gecko Moria (SP)",id:"ST03-004",r:"SP",en:"S$54–108",jp:"S$27–59"}
+],staples:[
+{c:"Silvers Rayleigh (SEC — red deck staple)",id:"OP08-118",r:"SEC",w:"Roger Pirates support, needs 3+ copies"},
+{c:"Kozuki Oden",id:"OP08-034",r:"SR",w:"Multi-archetype staple"},
+{c:"Queen (Blocker reprint)",id:"ST04-005",r:"SP reprint",w:"Purple blocker staple across formats"},
+{c:"Nami",id:"OP08-106",r:"SR",w:"Yellow removal + draw engine"}
+]},
+
+{code:"OP-09",name:"Emperors in the New World",theme:"Four Emperors / Yonko",jpn:"Aug 2024",en:"Nov 2024",owned:false,od:"",jpnEx:"No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Gol D. Roger (Manga Rare)",id:"OP09-118",r:"SEC Manga",en:"S$4,725–10,793 (PSA 10)",jp:"~S$2,700–4,725"},
+{c:"Monkey D. Luffy (SEC)",id:"OP09-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Gol D. Roger (SEC Alt Art)",id:"OP09-118",r:"SEC AA ★",en:"S$270–540",jp:"S$135–270"},
+{c:"Monkey D. Luffy (SEC Alt Art)",id:"OP09-119",r:"SEC AA ★",en:"S$135–338",jp:"S$81–202"},
+{c:"Shanks (Leader Alt Art)",id:"OP09-004",r:"L AA ★",en:"S$135–405",jp:"S$81–202"}
+],staples:[
+{c:"Shanks (Leader)",id:"OP09-004",r:"L",w:"Red Shanks archetype leader"},
+{c:"Marshall D. Teach",id:"OP09-076",r:"SR",w:"Blackbeard deck core"}
+]},
+
+{code:"OP-10",name:"Royal Blood",theme:"Celestial Dragons / Royalty",jpn:"Nov 2024",en:"Jan 2025",owned:true,od:"🟢 1 JPN box (SEALED)",jpnEx:"No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Monkey D. Luffy (SEC)",id:"OP10-118",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Trafalgar Law (SEC)",id:"OP10-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Monkey D. Luffy (SEC Alt Art)",id:"OP10-118",r:"SEC AA ★",en:"S$135–270",jp:"S$68–135"},
+{c:"Trafalgar Law (SEC Alt Art)",id:"OP10-119",r:"SEC AA ★",en:"S$135–338",jp:"S$68–162"},
+{c:"Edward Newgate (SP)",id:"ST15-002",r:"SP",en:"~S$270",jp:"~S$135"},
+{c:"Uso-Hachi (SP)",id:"ST18-001",r:"SP",en:"~S$196",jp:"~S$94"},
+{c:"Sanji (SP)",id:"ST14-003",r:"SP",en:"~S$169",jp:"~S$81"},
+{c:"Charlotte Pudding (SP)",id:"ST12-012",r:"SP",en:"~S$81",jp:"~S$40"},
+{c:"Charlotte Flampe (SP)",id:"EB01-056",r:"SP",en:"~S$68",jp:"~S$34"},
+{c:"Urouge (SP)",id:"OP07-021",r:"SP",en:"~S$47",jp:"~S$24"}
+],staples:[
+{c:"Deck-specific support cards",id:"Various",r:"SR/R",w:"Royal Blood meta pieces"}
+]},
+
+{code:"OP-11",name:"Fist of Divine Speed",theme:"Gear 5 Nika / Speed",jpn:"Feb 2025",en:"May 2025",owned:false,od:"",jpnEx:"3rd Anniversary Gold/Silver SP (JPN only), No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Monkey D. Luffy (SEC)",id:"OP11-118",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Koby (SEC)",id:"OP11-119",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Monkey D. Luffy (SEC Alt Art)",id:"OP11-118",r:"SEC AA ★",en:"S$135–270",jp:"S$68–135"},
+{c:"Koby (SEC Alt Art)",id:"OP11-119",r:"SEC AA ★",en:"S$68–135",jp:"S$40–81"},
+{c:"Luffy Nika Gold SP (3rd Anniv — JPN only)",id:"OP05-119",r:"SP Gold",en:"JPN exclusive",jp:"~S$19,912"},
+{c:"Luffy Nika Silver SP (3rd Anniv — JPN only)",id:"OP05-119",r:"SP Silver",en:"JPN exclusive",jp:"~S$8,100"},
+{c:"Luffy-Tarou (SP)",id:"ST18-005",r:"SP",en:"~S$481",jp:"~S$243"},
+{c:"Sanji (SP)",id:"OP06-119",r:"SP",en:"~S$223",jp:"~S$108"},
+{c:"Shanks (SP)",id:"ST16-004",r:"SP",en:"~S$202",jp:"~S$101"},
+{c:"Stussy (SP)",id:"OP07-085",r:"SP",en:"~S$169",jp:"~S$81"},
+{c:"Shirahoshi (SP)",id:"EB01-057",r:"SP",en:"~S$135",jp:"~S$68"},
+{c:"Silvers Rayleigh (SP)",id:"OP09-005",r:"SP",en:"~S$86",jp:"~S$40"}
+],staples:[
+{c:"Monkey D. Luffy (Leader)",id:"OP11-040",r:"L",w:"Tier 1 — 52.9% win rate, meta-defining"},
+{c:"Nami (Leader)",id:"OP11-041",r:"L",w:"Value-draw archetype, Hancock counter"},
+{c:"Koby (Leader — SWORD)",id:"OP11-001",r:"L",w:"Emerging SWORD archetype"},
+{c:"Charlotte Katakuri (Leader)",id:"OP11-062",r:"L",w:"Counter-meta option"}
+]},
+
+{code:"OP-12",name:"Legacy of the Master",theme:"Mentors & Disciples",jpn:"May 2025",en:"Aug 2025",owned:false,od:"",jpnEx:"No TR",enEx:"Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Jewelry Bonney (SEC)",id:"OP12-118",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Bartholomew Kuma (SEC)",id:"OP12-119",r:"SEC",en:"S$68–135",jp:"S$34–81"},
+{c:"Jewelry Bonney (SEC Alt Art)",id:"OP12-118",r:"SEC AA ★",en:"S$108–202",jp:"S$54–108"},
+{c:"Bartholomew Kuma (SEC Alt Art)",id:"OP12-119",r:"SEC AA ★",en:"S$135–338",jp:"S$68–162"},
+{c:"Kuzan (SP)",id:"OP10-082",r:"SP",en:"~S$167",jp:"~S$81"},
+{c:"Tashigi (SP)",id:"OP06-050",r:"SP",en:"~S$209",jp:"~S$50"},
+{c:"Lim (SP)",id:"OP09-037",r:"SP",en:"~S$80",jp:"~S$23"},
+{c:"Yasopp (SP)",id:"OP09-013",r:"SP",en:"~S$46",jp:"~S$30"},
+{c:"Zoro-Juurou (SP)",id:"ST18-004",r:"SP",en:"TBD",jp:"~S$40"},
+{c:"Portgas D. Ace (SP)",id:"ST13-011",r:"SP",en:"~S$40",jp:"~S$20"},
+{c:"Marshall D. Teach Gold (3rd Anniv)",id:"OP09-093",r:"SP Gold",en:"JPN exclusive",jp:"~S$675–1,350"},
+{c:"Marshall D. Teach Silver (3rd Anniv)",id:"OP09-093",r:"SP Silver",en:"JPN exclusive",jp:"~S$270–540"}
+],staples:[
+{c:"Roronoa Zoro (Leader)",id:"OP12-020",r:"L",w:"Former Tier 1 (weak vs OP14 Mihawk)"},
+{c:"Silvers Rayleigh (Leader)",id:"OP12-001",r:"L",w:"Control archetype"}
+]},
+
+{code:"OP-13",name:"Carrying on His Will",theme:"3rd Anniversary / Inherited Will",jpn:"Aug 2025",en:"Nov 2025",owned:true,od:"🟢 5 EN packs (opened) + 1 JPN box (opened)",jpnEx:"Demon Pack, 3rd Anniv Gold/Silver Shanks, No TR",enEx:"Treasure Rare: OP11-058 Luffy",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Monkey D. Luffy (Red Manga Rare)",id:"OP13-118",r:"Red Manga",en:"S$6,379–11,475",jp:"~€8,490 raw"},
+{c:"Portgas D. Ace (Red Manga Rare)",id:"OP13-119",r:"Red Manga",en:"S$2,700–5,400",jp:"~S$2,025–3,375"},
+{c:"Sabo (Red Manga Rare)",id:"OP13-120",r:"Red Manga",en:"S$2,700–4,725",jp:"~S$1,620–2,700"},
+{c:"Luffy (Standard Manga)",id:"OP13-118",r:"Manga",en:"S$202–675",jp:"S$108–338"},
+{c:"Ace (Standard Manga)",id:"OP13-119",r:"Manga",en:"S$202–540",jp:"S$108–270"},
+{c:"Sabo (Standard Manga)",id:"OP13-120",r:"Manga",en:"S$202–405",jp:"S$108–202"},
+{c:"Demon Pack — Imu Leader AA",id:"OP13-079",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Demon Pack — St. Jaygarcia Saturn AA",id:"OP13-081",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Demon Pack — Five Elders AA",id:"OP13-082",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Demon Pack — St. Ethanbaron V. Nusjuro AA",id:"OP13-080",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Demon Pack — St. Topman Warcury AA",id:"OP13-083",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Demon Pack — St. Shepherd Ju Peter AA",id:"OP13-084",r:"Demon Pack",en:"S$338–405",jp:"S$338–405"},
+{c:"Shanks 3rd Anniv Gold (JPN only)",id:"OP09-004",r:"SP Gold",en:"JPN exclusive",jp:"Highest value in set"},
+{c:"Shanks 3rd Anniv Silver (JPN only)",id:"OP09-004",r:"SP Silver",en:"JPN exclusive",jp:"~S$405+"},
+{c:"Paper Art Afterimage (Ace Wanted Poster Event SP)",id:"OP13-115",r:"SP",en:"S$202–405",jp:"S$108–202"},
+{c:"The One Who Is the Most Free Is the Pirate King!!! (Luffy Wanted Poster Event SP)",id:"OP13-116",r:"SP",en:"~S$202",jp:"S$108–135"},
+{c:"Roger Wanted Poster Event SP (TBV name)",id:"OP13-117",r:"SP",en:"~S$243",jp:"S$135–162"},
+{c:"Luffy (SEC Alt Art)",id:"OP13-118",r:"SEC AA ★",en:"S$68–270",jp:"S$40–135"},
+{c:"Ace (SEC Alt Art)",id:"OP13-119",r:"SEC AA ★",en:"S$68–270",jp:"S$40–135"},
+{c:"Sabo (SEC Alt Art)",id:"OP13-120",r:"SEC AA ★",en:"S$68–270",jp:"S$40–135"}
+],staples:[
+{c:"Five Elders (10-cost)",id:"OP13-082",r:"SR",w:"Win condition in Tier 1 Imu — needs 4 copies"},
+{c:"Imu (Leader)",id:"OP13-079",r:"L",w:"Tier 1 leader"},
+{c:"The Empty Throne",id:"OP13-099",r:"R",w:"Core engine for Imu deck"},
+{c:"Portgas D. Ace (Leader)",id:"OP13-002",r:"L",w:"Tier 1 Red/Blue Ace leader"},
+{c:"St. Jaygarcia Saturn",id:"OP13-081",r:"R",w:"Five Elders searcher"},
+{c:"St. Ethanbaron V. Nusjuro",id:"OP13-080",r:"R",w:"Blocker in Imu"},
+{c:"St. Shepherd Ju Peter",id:"OP13-084",r:"R",w:"Rush attacker in Imu"},
+{c:"St. Topman Warcury",id:"OP13-083",r:"R",w:"Removal in Imu"},
+{c:"St. Marcus Mars",id:"OP13-085",r:"R",w:"Blocker in Imu"},
+{c:"Edward Newgate (12K Blocker)",id:"OP13-100",r:"SR",w:"Draws 2, massive body"},
+{c:"Gol D. Roger (Leader)",id:"OP13-003",r:"L",w:"Competitive leader"}
+]},
+
+{code:"OP-14",name:"The Azure Sea's Seven",theme:"Seven Warlords",jpn:"Nov 2025 (OP14 + EB04 separate)",en:"Jan 2026 (combined OP14-EB04)",owned:true,od:"🟢 1 EN box (opened)",jpnEx:"OP14 & EB04 sold separately, No TR",enEx:"Combined OP14-EB04, Treasure Rare included",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Dracule Mihawk (Manga Rare)",id:"OP14-119",r:"Manga",en:"~S$1,890",jp:"~S$945"},
+{c:"Buggy (SP Gold — 3rd Anniversary, exact card # TBV)",id:"OP14-3A",r:"SP Gold",en:"~S$3,576",jp:"~S$1,620"},
+{c:"Buggy (SP Silver — 3rd Anniversary)",id:"OP14-3A",r:"SP Silver",en:"~S$675–1,350",jp:"~S$405–810"},
+{c:"Boa Hancock (SP)",id:"OP14-112",r:"SP",en:"~S$1,069",jp:"~S$540"},
+{c:"Dracule Mihawk (SP)",id:"OP14-119",r:"SP",en:"~S$308",jp:"~S$162"},
+{c:"Sugar (SP)",id:"OP14-065",r:"SP",en:"S$68–135",jp:"S$40–81"},
+{c:"Perona (SP)",id:"OP14-068",r:"SP",en:"S$68–108",jp:"S$40–68"},
+{c:"Crocodile (SEC Alt Art)",id:"OP14-120",r:"SEC AA ★",en:"S$135–270",jp:"S$68–135"},
+{c:"Mihawk (SEC Alt Art)",id:"OP14-119",r:"SEC AA ★",en:"S$135–308",jp:"S$68–162"},
+{c:"Boa Hancock (SR Alt Art)",id:"OP14-112",r:"SR AA ★",en:"~S$263",jp:"~S$108"},
+{c:"Ms. All Sunday (SR Alt Art)",id:"OP14-084",r:"SR AA ★",en:"~S$94",jp:"~S$40"},
+{c:"Doflamingo (SR Alt Art)",id:"OP14-069",r:"SR AA ★",en:"~S$55",jp:"~S$27"},
+{c:"Vivi (SR Alt Art)",id:"EB04-025",r:"SR AA ★",en:"~S$54",jp:"~S$27"}
+],staples:[
+{c:"Dracule Mihawk (Leader)",id:"OP14-020",r:"L",w:"Tier 1 — dominates current meta"},
+{c:"Boa Hancock (Leader)",id:"OP14-041",r:"L",w:"Tier 1 — most explosive leader"},
+{c:"Mihawk (SEC finisher)",id:"OP14-119",r:"SEC",w:"Finisher in Mihawk decks"},
+{c:"Boa Hancock",id:"OP14-112",r:"SR",w:"Closer in Hancock decks"},
+{c:"Coffin Boat",id:"OP14-039",r:"R",w:"Core consistency in Mihawk"},
+{c:"Perona",id:"OP14-033",r:"R",w:"Mid-game stabilizer in Mihawk"},
+{c:"Shanks",id:"OP14-027",r:"SR",w:"Finisher in Mihawk builds"},
+{c:"Marguerite",id:"OP14-113",r:"R",w:"Searcher in Hancock decks"},
+{c:"Gorgon Sisters",id:"OP14-105",r:"R",w:"Board buff for Hancock"},
+{c:"Ground Death",id:"OP14-096",r:"R",w:"Disruption tech in Imu"}
+]},
+
+{code:"OP-15",name:"Adventure on Kami's Island",theme:"Skypiea / Enel — RELEASING NOW",jpn:"Feb 2026",en:"Apr 2026",owned:false,od:"",jpnEx:"Devil Fruit Pattern SPs, No TR",enEx:"Combined with EB04 remainder, Treasure Rare",
+msrp:"EN Box ~S$130 | JPN Box ~S$80",
+chase:[
+{c:"Enel (Comic Parallel)",id:"OP15-118",r:"Comic Parallel",en:"TBD",jp:"¥138,000–160,000 (~S$1,202–1,390)"},
+{c:"Monkey D. Luffy (SEC)",id:"OP15-119",r:"SEC",en:"TBD",jp:"TBD"},
+{c:"Enel (SEC)",id:"OP15-118",r:"SEC",en:"TBD",jp:"TBD"},
+{c:"Boa Hancock (SP — Devil Fruit pattern art)",id:"OP12-014",r:"SP",en:"~S$742",jp:"~S$473"},
+{c:"Monkey D. Luffy (SP — Devil Fruit pattern art)",id:"ST26-005",r:"SP",en:"~S$338",jp:"~S$202"},
+{c:"Enel (SP — Devil Fruit pattern art)",id:"EB02-052",r:"SP",en:"~S$270",jp:"~S$162"},
+{c:"Trafalgar Law (SP — Devil Fruit pattern art)",id:"OP13-031",r:"SP",en:"~S$270",jp:"~S$162"},
+{c:"Sabo (SP — Devil Fruit pattern art)",id:"P-105",r:"SP",en:"~S$202",jp:"~S$135"},
+{c:"Edward Newgate (SP — Devil Fruit pattern art)",id:"OP13-042",r:"SP",en:"~S$202",jp:"~S$135"},
+{c:"Zeus (SP — may be additional in EN combined set)",id:"OP11-106",r:"SP",en:"TBD",jp:"~S$40–108"}
+],staples:[
+{c:"Purple Enel (Leader)",id:"OP15-001",r:"L",w:"Dominating JPN tournaments already"},
+{c:"Brook (Leader — first ever)",id:"OP15-002",r:"L",w:"New archetype"}
+]},
+
+// EXTRA BOOSTERS
+{code:"EB-01",name:"Memorial Collection",theme:"Dressrosa / Baroque / Wano — First Extra Booster",jpn:"Nov 2023",en:"May 2024",owned:false,od:"",jpnEx:"6 cards/pack, 62-card pool",enEx:"12 cards/pack",
+msrp:"EN Box ~S$100 | JPN Box ~S$65",
+chase:[
+{c:"Tony Tony Chopper (Manga Rare)",id:"EB01-006",r:"SR Manga",en:"S$899+",jp:"¥108,000 (~S$945)"},
+{c:"Mr. 2 Bon Kurei (SEC)",id:"EB01-061",r:"SEC",en:"S$40–81",jp:"S$20–40"},
+{c:"Flampe (SP)",id:"EB01-056",r:"SP",en:"S$68–135",jp:"S$40–81"}
+],staples:[
+{c:"Sanji",id:"EB01-014",r:"SR",w:"Multi-deck staple"},
+{c:"Mr. 2 Bon Kurei",id:"EB01-061",r:"SEC",w:"Red Purple Law tech"}
+]},
+
+{code:"EB-02",name:"Anime 25th Collection",theme:"25th Anime Anniversary — New anime illustrations, SPR Leader reprints",jpn:"Feb 2025",en:"May 2025",owned:true,od:"🟢 1 EN pack (opened)",jpnEx:"6 cards/pack, 67+1 card types",enEx:"12 cards/pack, 87 card types",
+msrp:"EN Box ~S$100 | JPN Box ~S$65",
+chase:[
+{c:"Monkey D. Luffy (Manga SEC)",id:"EB02-061",r:"SEC Manga",en:"~S$1,193",jp:"~S$540"},
+{c:"Monkey D. Luffy (SEC Alt Art)",id:"EB02-061",r:"SEC AA ★",en:"~S$135–270",jp:"~S$68–135"},
+{c:"Monkey D. Luffy (SPR Leader — Purple)",id:"OP05-060",r:"SPR",en:"S$270+",jp:"S$135+"},
+{c:"Vinsmoke Reiju (SPR Leader)",id:"OP06-042",r:"SPR",en:"S$86",jp:"S$40"},
+{c:"Jewelry Bonney (SPR Leader)",id:"OP07-019",r:"SPR",en:"S$112",jp:"S$54"},
+{c:"Charlotte Pudding (SPR Leader)",id:"OP08-058",r:"SPR",en:"S$86",jp:"S$40"},
+{c:"Uta (SPR Leader)",id:"ST11-001",r:"SPR",en:"S$94–135",jp:"S$47–68"},
+{c:"Enel (SPR Leader — Yellow)",id:"OP05-098",r:"SPR",en:"S$135–202",jp:"S$68–108"},
+{c:"Rob Lucci (SPR Leader)",id:"OP07-079",r:"SPR",en:"S$135–297",jp:"S$68–135"},
+{c:"Perona (SPR Leader)",id:"OP06-021",r:"SPR",en:"S$68–124",jp:"S$40–68"},
+{c:"Gecko Moria (SPR Leader)",id:"OP06-080",r:"SPR",en:"S$40–81",jp:"S$20–40"},
+{c:"Boa Hancock (SPR Leader)",id:"OP07-038",r:"SPR",en:"S$68–157",jp:"S$40–81"},
+{c:"Yamato (SPR Leader)",id:"OP05-022",r:"SPR",en:"S$40–81",jp:"S$20–40"},
+{c:"Tony Tony Chopper (SPR Leader)",id:"OP08-001",r:"SPR",en:"S$40–68",jp:"S$20–34"},
+{c:"Marco (SPR Leader)",id:"OP08-002",r:"SPR",en:"S$40–81",jp:"S$20–40"}
+],staples:[
+{c:"Monkey D. Luffy (Purple Leader — reprint from OP05)",id:"OP05-060",r:"L",w:"Tier 1 flexible purple leader"},
+{c:"Enel (Yellow Leader — reprint from OP05)",id:"OP05-098",r:"L",w:"Yellow staple leader"},
+{c:"Vegapunk (Blocker)",id:"EB02-056",r:"SR",w:"Egghead scientist, searcher + blocker"},
+{c:"Nefeltari Vivi",id:"EB02-026",r:"SR",w:"Multicolor draw engine — draws 2 if 5 or less cards"},
+{c:"Trafalgar Law",id:"EB02-045",r:"SR",w:"Blocker with board bounce utility"}
+]},
+
+{code:"EB-03",name:"Heroines Edition",theme:"Female Characters — 9 SP cards, SP God Pack",jpn:"May 2025",en:"Feb 2026",owned:false,od:"",jpnEx:"SP God Pack (6 SPs) ~1/15 cases",enEx:"Treasure Rare",
+msrp:"EN Box ~S$110 | JPN Box ~S$70",
+chase:[
+{c:"SP God Pack (6 female SPs)",id:"EB03-GP",r:"God Pack",en:"S$1,080–1,620",jp:"S$1,080–1,620"},
+{c:"Boa Hancock (SP)",id:"EB03-026",r:"SP",en:"S$135–405",jp:"~S$1,461"},
+{c:"Nami (SP)",id:"EB03-053",r:"SP",en:"S$135–405",jp:"~S$810"},
+{c:"Nico Robin (SP)",id:"EB03-055",r:"SP",en:"S$135–338",jp:"S$81–202"},
+{c:"Uta (SP)",id:"EB03-003",r:"SP",en:"S$94–202",jp:"~S$148"},
+{c:"Perona (SP)",id:"EB03-045",r:"SP",en:"S$68–202",jp:"~S$88"},
+{c:"Vinsmoke Reiju (SP)",id:"EB03-031",r:"SP",en:"S$68–202",jp:"S$40–108"},
+{c:"Koala (SP)",id:"EB03-042",r:"SP",en:"S$68–135",jp:"S$40–81"},
+{c:"Tashigi (SP)",id:"EB03-018",r:"SP",en:"S$40–108",jp:"S$27–54"},
+{c:"Nefeltari Vivi (SP)",id:"EB03-024",r:"SP",en:"S$40–108",jp:"S$27–54"},
+{c:"Uta (SEC)",id:"EB03-061",r:"SEC",en:"S$135–270",jp:"~S$270"},
+{c:"Trafalgar Law (SEC)",id:"EB03-062",r:"SEC",en:"S$68–135",jp:"S$40–81"}
+],staples:[
+{c:"Boa Hancock (6-cost, hand disruption)",id:"EB03-026",r:"SR",w:"Forces opponent discard if 5+ hand"},
+{c:"Nico Robin (7-cost, life manipulation)",id:"EB03-055",r:"SR",w:"Trashes life to add 2 from deck"},
+{c:"Koala (Revolutionary Army support)",id:"EB03-042",r:"SR",w:"KO trigger plays from hand/trash"},
+{c:"Nami (life trade + card advantage)",id:"EB03-053",r:"SR",w:"Opponent loses life if 3+ remaining"}
+]},
+
+// PREMIUM BOOSTERS
+{code:"PRB-01",name:"THE BEST Vol. 1",theme:"Reprints OP01–OP06 + Gold DON!! + Manga God Pack",jpn:"Jul 2024 (10pk×10)",en:"Nov 2024 (20pk×10)",owned:true,od:"🟢 1 JPN box (opened)",jpnEx:"God Pack ~1/1,000 boxes, 10 packs × 10 cards",enEx:"20 packs × 10 cards",
+msrp:"EN Box ~S$150 | JPN Box ~S$80",
+chase:[
+{c:"God Pack (all 10 Manga Rares)",id:"PRB01-GP",r:"God Pack",en:"~S$12,420",jp:"~¥1,380,000 (~S$12,420)"},
+{c:"Luffy Gear 5 (Comic Parallel)",id:"OP05-119",r:"SEC Manga",en:"~S$3,983",jp:"¥428,000"},
+{c:"Nami (Comic Parallel)",id:"OP01-016",r:"R Manga",en:"~S$1,026",jp:"¥118,000"},
+{c:"Portgas D. Ace (Comic Parallel)",id:"OP02-013",r:"SR Manga",en:"~S$1,114",jp:"¥148,000"},
+{c:"Trafalgar Law (Comic Parallel)",id:"OP05-069",r:"SR Manga",en:"~S$945",jp:"¥128,000"},
+{c:"Chopper (Comic Parallel)",id:"EB01-006",r:"SR Manga",en:"~S$945",jp:"¥108,000"},
+{c:"Zoro (Comic Parallel)",id:"OP06-118",r:"SEC Manga",en:"~S$878",jp:"¥99,800"},
+{c:"Shanks (Comic Parallel)",id:"OP01-120",r:"SEC Manga",en:"~S$878",jp:"¥99,800"},
+{c:"Kid (Comic Parallel)",id:"OP05-074",r:"SR Manga",en:"~S$878",jp:"¥99,800"},
+{c:"Sabo (Comic Parallel)",id:"OP04-083",r:"SR Manga",en:"~S$783",jp:"¥89,800"},
+{c:"Sogeking (Comic Parallel)",id:"OP03-122",r:"SEC Manga",en:"~S$567",jp:"¥64,800"},
+{c:"Zoro (Gold DON!!)",id:"DON-Zoro",r:"Gold DON",en:"~S$709",jp:"~S$709"},
+{c:"Yamato (Gold DON!!)",id:"DON-Yamato",r:"Gold DON",en:"~S$405–540",jp:"~S$405–540"},
+{c:"Luffy (Gold DON!!)",id:"DON-Luffy",r:"Gold DON",en:"~S$270–405",jp:"~S$270–405"},
+{c:"Nami (Gold DON!!)",id:"DON-Nami",r:"Gold DON",en:"~S$202–338",jp:"~S$202–338"}
+],staples:[
+{c:"Sanji (Leader — PRB exclusive)",id:"PRB01-001",r:"L",w:"Exclusive Red leader, competitive"},
+{c:"Reprints from OP01–OP06",id:"Various",r:"Various",w:"Cheaper alt to OG prints for deck building"}
+]},
+
+{code:"PRB-02",name:"THE BEST Vol. 2",theme:"Reprints OP07+ / Gold DON!! Vol. 2 / Sanji Manga",jpn:"Jul 2025 (10pk×10)",en:"Oct 2025 (20pk×10)",owned:true,od:"🟢 1 EN box (SEALED in acrylic — HOLD)",jpnEx:"Gold DON God Pack ~1/15–20 cases, 10pk×10",enEx:"20pk×10, every pack = SR or better",
+msrp:"EN Box ~S$150 | JPN Box ~S$80",
+chase:[
+{c:"Sanji (Manga Rare)",id:"OP06-119",r:"Manga",en:"~S$562",jp:"~S$270"},
+{c:"Gold DON God Pack (10 Gold DON!!)",id:"PRB02-GP",r:"God Pack",en:"~S$473–675",jp:"~S$473–675"},
+{c:"Individual Gold DON!! (30 designs)",id:"DON-Various",r:"Gold DON",en:"S$40–68 each",jp:"S$40–68 each"},
+{c:"SP cards (6 types)",id:"PRB02-SP",r:"SP",en:"S$68–270 each",jp:"S$40–135 each"},
+{c:"Zoro SEC reprint AA",id:"OP06-118",r:"SEC AA ★",en:"S$27–135",jp:"S$20–81"},
+{c:"Sanji SEC reprint AA",id:"OP06-119",r:"SEC AA ★",en:"S$27–135",jp:"S$20–81"}
+],staples:[
+{c:"Trafalgar Law",id:"PRB02-002",r:"SR",w:"Hard-to-remove control piece"},
+{c:"Monkey D. Luffy",id:"PRB02-005",r:"SR",w:"DON!! disruption, multicolor"},
+{c:"Sabo",id:"PRB02-014",r:"SR",w:"Cost-reduced blocker"},
+{c:"Marco",id:"PRB02-008",r:"SR",w:"Big Mom draw engine"},
+{c:"Koby",id:"PRB02-001",r:"R",w:"Navy staple, removal + draw"},
+{c:"Jewelry Bonney",id:"PRB02-004",r:"R",w:"Blocker w/ DON!! reactivation"}
+]},
+
+// BATTLE PACK
+{code:"SBP-09",name:"Standard Battle Pack Vol. 9",theme:"Tournament Promo — JPN Exclusive",jpn:"Sep 2024",en:"N/A (JPN only)",owned:true,od:"🟢 2 JPN packs (opened)",jpnEx:"1 of 4 random alt art cards per pack",enEx:"N/A",
+msrp:"~S$5 per pack",
+chase:[
+{c:"Sanji (Parallel)",id:"EB01-014",r:"R AA ★",en:"N/A",jp:"~S$4–11"},
+{c:"Charlotte Pudding (Parallel)",id:"OP06-047",r:"SR AA ★",en:"N/A",jp:"~S$4–11"},
+{c:"Hirokiri Kamazo (Parallel)",id:"OP06-076",r:"R AA ★",en:"N/A",jp:"~S$4–11"},
+{c:"Kaku (Parallel)",id:"OP07-080",r:"R AA ★",en:"N/A",jp:"~S$4–11"}
+],staples:[]},
+
+// JPN EVENT PACKS
+{code:"EP-01-08",name:"Event Packs Vol. 1–8",theme:"Bandai event promos — 1–2 exclusive promo cards per pack",jpn:"2022–2026",en:"Some cards in EN event packs",owned:false,od:"",jpnEx:"Distributed at Bandai Card Fests, anime expos, official events",enEx:"EN versions at Regionals/Treasure Cups",
+msrp:"Free (event attendance required)",
+chase:[
+{c:"Marshall D. Teach (P-100)",id:"P-100",r:"Promo",en:"N/A",jp:"~S$21"},
+{c:"Nico Robin (P-111)",id:"P-111",r:"Promo",en:"~S$25 (Heroines Battle Pack)",jp:"~S$20"},
+{c:"Portgas D. Ace (P-074)",id:"P-074",r:"Promo",en:"~S$7–14",jp:"~S$5–10"},
+{c:"Monkey D. Luffy (P-075)",id:"P-075",r:"Promo",en:"~S$7–14",jp:"~S$5–10"},
+{c:"Shanks (P-083)",id:"P-083",r:"Promo",en:"~S$7–14",jp:"~S$5–10"},
+{c:"Sabo (P-105)",id:"P-105",r:"Promo",en:"N/A",jp:"~S$7–14"}
+],staples:[]},
+
+// JPN TOURNAMENT PRIZE CARDS (SERIALIZED)
+{code:"PRIZE",name:"Tournament Prize Cards (Serialized)",theme:"Serialized cards — Flagship Battle, Regional, Store Championship prizes",jpn:"2022–2026",en:"2023–2026",owned:false,od:"",jpnEx:"Top prize = serialized card with unique number, winner/participation alt arts",enEx:"Same prize structure from 2026 season",
+msrp:"Free (must win/top-cut tournament)",
+chase:[
+{c:"Monkey D. Luffy (Serial — 2026 Regionals)",id:"EB04-061",r:"Serial Prize",en:"~S$36,450",jp:"~S$36,450"},
+{c:"Yamato (Serial — Extra Grand Battle 2026)",id:"EB02-006",r:"Serial Prize",en:"TBD",jp:"TBD"},
+{c:"Monkey D. Luffy (Serial — 2024–25 Season)",id:"ST01-001",r:"Serial Prize",en:"~S$2,700–6,750",jp:"~S$2,700–6,750"},
+{c:"Winner/Participation alt art cards",id:"P-Various",r:"Promo AA",en:"~S$7–68 each",jp:"~S$7–68 each"}
+],staples:[]},
+
+// WINNER CARDS (STORE CHAMPIONSHIP / TREASURE CUP)
+{code:"WINNER",name:"Store Championship & Treasure Cup Winner Cards",theme:"Alt art promos given to winners and participants at official store events",jpn:"Monthly",en:"Monthly",owned:false,od:"",jpnEx:"Winner card + participation card each month",enEx:"Same structure",
+msrp:"Free (enter local store tournament)",
+chase:[
+{c:"Monthly winner card (rotates)",id:"P-Various",r:"Promo AA",en:"~S$14–68",jp:"~S$7–40"},
+{c:"Monthly participation card (rotates)",id:"P-Various",r:"Promo",en:"~S$1–7",jp:"~S$1–5"}
+],staples:[]},
+{code:"EB-04",name:"Egghead Crisis",theme:"Egghead Arc — JPN standalone, split across OP14+OP15 in EN",jpn:"Jan 2026 (standalone)",en:"Split into OP14-EB04 + OP15-EB04",owned:true,od:"🟢 1 JPN box (opened)",jpnEx:"JPN-only standalone release, 24pk × 6 cards",enEx:"Cards split across OP14 (Jan 2026) & OP15 (Apr 2026)",
+msrp:"JPN Box ~S$65",
+chase:[
+{c:"Monkey D. Luffy (SEC)",id:"EB04-061",r:"SEC",en:"In OP14-EB04",jp:"~S$27–68"},
+{c:"Koby (SR-SP Comic Parallel)",id:"EB04-044",r:"SP",en:"In OP15-EB04",jp:"~S$135–405"},
+{c:"Jewelry Bonney (Leader Alt Art)",id:"EB04-001",r:"L AA ★",en:"In OP14-EB04",jp:"~S$40–108"},
+{c:"Roronoa Zoro (SR)",id:"EB04-007",r:"SR",en:"In OP14-EB04",jp:"~S$14–40"},
+{c:"Eustass Kid (SP)",id:"EB04-SP",r:"SP",en:"In OP15-EB04",jp:"~S$68–202"},
+{c:"Gold DON!!",id:"DON-EB04",r:"Gold DON",en:"In OP14-EB04",jp:"~S$27–54"}
+],staples:[
+{c:"Jewelry Bonney (Leader)",id:"EB04-001",r:"L",w:"Red/Yellow leader — high risk/reward playstyle"},
+{c:"Koby",id:"EB04-044",r:"SR",w:"Navy/SWORD staple, can't be removed + draws on KO"},
+{c:"Rob Lucci",id:"EB04-040",r:"SR",w:"CP0 support, grows with trash count"},
+{c:"Roronoa Zoro",id:"EB04-007",r:"SR",w:"Egghead Straw Hat support, Rush potential"}
+]},
+
+// ILLUSTRATION BOXES
+{code:"IB-01",name:"Illustration Box Vol. 1",theme:"4 OP-09 packs + 2 exclusive Luffy/Nami promo cards",jpn:"N/A",en:"Nov 2024",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$50",
+chase:[
+{c:"Exclusive Luffy promo",id:"P-IB01",r:"Promo",en:"~S$7–20",jp:"N/A"},
+{c:"Exclusive Nami promo",id:"P-IB01",r:"Promo",en:"~S$7–20",jp:"N/A"},
+{c:"+ OP-09 pack pulls (see OP-09 chase list)",id:"OP09",r:"Various",en:"See OP-09",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-02",name:"Illustration Box Vol. 2",theme:"4 OP-10 packs + 2 exclusive promo cards",jpn:"N/A",en:"Jan 2025",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$50",
+chase:[
+{c:"Exclusive promo cards (2)",id:"P-IB02",r:"Promo",en:"~S$7–20 each",jp:"N/A"},
+{c:"+ OP-10 pack pulls (see OP-10 chase list)",id:"OP10",r:"Various",en:"See OP-10",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-03",name:"Illustration Box Vol. 3",theme:"4 OP-12 packs + 2 exclusive promo cards",jpn:"N/A",en:"Aug 2025",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$50",
+chase:[
+{c:"Exclusive promo cards (2)",id:"P-IB03",r:"Promo",en:"~S$7–20 each",jp:"N/A"},
+{c:"+ OP-12 pack pulls (see OP-12 chase list)",id:"OP12",r:"Various",en:"See OP-12",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-04",name:"Illustration Box Vol. 4",theme:"4 OP-12/OP-13 packs + 2 exclusive promo cards",jpn:"N/A",en:"Sep 2025",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$50",
+chase:[
+{c:"Exclusive promo cards (2)",id:"P-IB04",r:"Promo",en:"~S$7–20 each",jp:"N/A"},
+{c:"+ OP-12/OP-13 pack pulls",id:"OP12-13",r:"Various",en:"See OP-12/13",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-05",name:"Illustration Box Vol. 5",theme:"2 OP-13 + 2 PRB-02 packs + Ace & Sabo promos",jpn:"N/A",en:"Jan 2026",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$53",
+chase:[
+{c:"Exclusive Ace illustration promo",id:"P-IB05",r:"Promo",en:"~S$14–34",jp:"N/A"},
+{c:"Exclusive Sabo illustration promo",id:"P-IB05",r:"Promo",en:"~S$14–34",jp:"N/A"},
+{c:"+ OP-13 & PRB-02 pack pulls",id:"OP13-PRB02",r:"Various",en:"See OP-13/PRB-02",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-06",name:"Illustration Box Vol. 6",theme:"OP-13/PRB-02 packs + exclusive promo cards",jpn:"N/A",en:"Jan 2026",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, ~$24 MSRP",
+msrp:"~S$53",
+chase:[
+{c:"Exclusive promo cards (2)",id:"P-IB06",r:"Promo",en:"~S$14–34 each",jp:"N/A"},
+{c:"+ OP-13 & PRB-02 pack pulls",id:"OP13-PRB02",r:"Various",en:"See OP-13/PRB-02",jp:"N/A"}
+],staples:[]},
+
+{code:"IB-07/08",name:"Illustration Box Vol. 7 & 8",theme:"Upcoming — OP-14/OP-15 packs expected",jpn:"N/A",en:"2026 (announced)",owned:false,od:"",jpnEx:"N/A",enEx:"EN product, details TBA",
+msrp:"~S$53 each",
+chase:[
+{c:"Exclusive promo cards (TBA)",id:"P-IB07",r:"Promo",en:"TBD",jp:"N/A"}
+],staples:[]},
+
+// DOUBLE PACK SETS
+{code:"DP-01",name:"Double Pack Set Vol. 1",theme:"2× OP-01 packs + exclusive DON!! card",jpn:"N/A",en:"Dec 2022",owned:false,od:"",jpnEx:"N/A",enEx:"2 booster packs + 1 DON!! card, ~$12",
+msrp:"~S$15",
+chase:[
+{c:"Exclusive DON!! card",id:"DON-DP01",r:"DON!!",en:"~S$4–14",jp:"N/A"},
+{c:"+ OP-01 pack pulls",id:"OP01",r:"Various",en:"See OP-01",jp:"N/A"}
+],staples:[]},
+
+{code:"DP-02 to 10",name:"Double Pack Sets Vol. 2–10",theme:"2 booster packs + exclusive DON!! card each",jpn:"Various (some JPN, some EN only)",en:"Mar 2023 – Apr 2026",owned:false,od:"",jpnEx:"Some JPN releases include different DON!! art",enEx:"~$12 each, DON!! cards are set-exclusive",
+msrp:"~S$15–24 each",
+chase:[
+{c:"Exclusive DON!! cards per volume",id:"DON-DP",r:"DON!!",en:"~S$4–20 each",jp:"~S$4–14 each"},
+{c:"Booster packs from corresponding sets",id:"Various",r:"Various",en:"See respective sets",jp:"See respective sets"}
+],staples:[]},
+
+// MINI CASE SETS / TREASURE SETS
+{code:"TS-01",name:"Mini Case Set Vol. 1",theme:"2× OP-11 packs + promo in collectible tin",jpn:"N/A",en:"May 2025",owned:false,od:"",jpnEx:"N/A",enEx:"6 designs, ~$12 each",
+msrp:"~S$90",
+chase:[
+{c:"Exclusive promo card",id:"P-TS01",r:"Promo",en:"~S$4–14",jp:"N/A"},
+{c:"+ OP-11 pack pulls",id:"OP11",r:"Various",en:"See OP-11",jp:"N/A"}
+],staples:[]},
+
+{code:"TS-02",name:"Mini Case Set Vol. 2",theme:"2× OP-13 packs + promo in collectible tin",jpn:"N/A",en:"Nov 2025",owned:false,od:"",jpnEx:"N/A",enEx:"6 designs, ~$12 each",
+msrp:"~S$90",
+chase:[
+{c:"Exclusive promo card",id:"P-TS02",r:"Promo",en:"~S$4–14",jp:"N/A"},
+{c:"+ OP-13 pack pulls",id:"OP13",r:"Various",en:"See OP-13",jp:"N/A"}
+],staples:[]},
+
+{code:"TS-03",name:"Mini Case Set Vol. 3",theme:"2× OP-17 packs + promo — upcoming",jpn:"N/A",en:"Oct 2026 (announced)",owned:false,od:"",jpnEx:"N/A",enEx:"6 designs, details TBA",
+chase:[
+{c:"TBA",id:"P-TS03",r:"Promo",en:"TBD",jp:"N/A"}
+],staples:[]},
+
+// TREASURE CHEST
+{code:"TC-01",name:"Treasure Chest Vol. 1",theme:"Premium collectible box with booklet + packs",jpn:"2025",en:"2025",owned:false,od:"",jpnEx:"JPN version available",enEx:"EN version available",
+msrp:"~S$68",
+chase:[
+{c:"Exclusive alt art cards in booklet",id:"P-TC01",r:"Promo AA",en:"~S$14–40 each",jp:"~S$14–40 each"},
+{c:"Booster packs included",id:"Various",r:"Various",en:"See respective sets",jp:"See respective sets"}
+],staples:[]},
+
+// PREMIUM CARD COLLECTIONS
+{code:"PCC-BS1",name:"Premium Card Collection — Best Selection Vol. 1",theme:"12 alt art reprints of competitive staples in booklet",jpn:"2024",en:"2024",owned:false,od:"",jpnEx:"JPN version",enEx:"EN version",
+msrp:"~S$40",
+chase:[
+{c:"12 alt art reprints of popular playable cards",id:"PCC-BS1",r:"AA reprints",en:"~S$7–34 per card",jp:"~S$7–27 per card"}
+],staples:[
+{c:"Contains reprints of key meta cards with new art",id:"Various",r:"Various",w:"Budget-friendly way to get competitive staples in alt art"}
+]},
+
+{code:"PCC-BS2 to 6",name:"Premium Card Collection — Best Selection Vol. 2–6",theme:"12 alt art reprints per volume, ongoing series",jpn:"2024–2026",en:"2024–2026",owned:false,od:"",jpnEx:"JPN versions",enEx:"EN versions, P.Bandai exclusive for some",
+msrp:"~S$40 each",
+chase:[
+{c:"12 alt art reprints per volume",id:"PCC-BS",r:"AA reprints",en:"~S$7–34 per card",jp:"~S$7–27 per card"}
+],staples:[
+{c:"Competitive staple reprints with exclusive art",id:"Various",r:"Various",w:"Collectible alt arts of tournament-relevant cards"}
+]},
+
+{code:"PCC-6A",name:"Premium Card Collection — 6 Assort Vol. 1",theme:"6 random premium cards in assorted pack",jpn:"2025",en:"2025",owned:false,od:"",jpnEx:"JPN version",enEx:"EN version",
+msrp:"~S$40",
+chase:[
+{c:"Assorted premium cards (6 per pack)",id:"PCC-6A",r:"Various",en:"~S$4–20 per card",jp:"~S$4–14 per card"}
+],staples:[]},
+
+// ANNIVERSARY SETS
+{code:"3RD-ANNIV-JP",name:"3rd Anniversary Set (Japanese)",theme:"Leather case, 3 Leaders, DON!! cards, storage box — P.Bandai exclusive",jpn:"Aug 2025",en:"N/A (JPN exclusive)",owned:false,od:"",jpnEx:"P.Bandai exclusive, Ace/Luffy/Sabo Leaders + 10 DON!! + 4 Characters",enEx:"N/A",
+msrp:"~S$55 (JPN)",
+chase:[
+{c:"Monkey D. Luffy (Anniversary Leader)",id:"P-3A-JP",r:"L Promo",en:"N/A",jp:"~S$40–108"},
+{c:"Portgas D. Ace (Anniversary Leader)",id:"P-3A-JP",r:"L Promo",en:"N/A",jp:"~S$40–108"},
+{c:"Sabo (Anniversary Leader)",id:"P-3A-JP",r:"L Promo",en:"N/A",jp:"~S$40–108"},
+{c:"10× Anniversary DON!! cards",id:"DON-3A-JP",r:"DON!!",en:"N/A",jp:"~S$14–40 each"}
+],staples:[]},
+
+{code:"3RD-ANNIV-EN",name:"3rd Anniversary Set (English)",theme:"Leather case, 3 Leaders, DON!! cards — P.Bandai exclusive",jpn:"N/A",en:"2026 (announced)",owned:false,od:"",jpnEx:"N/A",enEx:"P.Bandai exclusive, Three Brothers theme",
+msrp:"~S$306",
+chase:[
+{c:"3× Anniversary Leader cards (Luffy/Ace/Sabo)",id:"P-3A-EN",r:"L Promo",en:"TBD",jp:"N/A"},
+{c:"10× Anniversary DON!! cards",id:"DON-3A-EN",r:"DON!!",en:"TBD",jp:"N/A"},
+{c:"4× Character cards",id:"P-3A-EN",r:"Promo",en:"TBD",jp:"N/A"}
+],staples:[]},
+
+// CHAMPIONSHIP SETS
+{code:"CS-2023",name:"Championship Set 2023",theme:"Event exclusive — Ace Leader + playmat + deck box",jpn:"2023",en:"2023",owned:false,od:"",jpnEx:"Event exclusive",enEx:"Event exclusive",
+msrp:"~S$55",
+chase:[
+{c:"Portgas D. Ace (Leader — sealed exclusive)",id:"P-CS23",r:"L Promo",en:"~S$68–88",jp:"~S$40–68"},
+{c:"Ace/Sabo/Luffy playmat",id:"MAT-CS23",r:"Accessory",en:"~S$40–68",jp:"~S$27–54"}
+],staples:[]},
+
+{code:"CS-2024",name:"Championship Set 2024",theme:"Event exclusive — updated Leaders + accessories",jpn:"2024",en:"2024",owned:false,od:"",jpnEx:"Event exclusive",enEx:"Event exclusive",
+msrp:"~S$55",
+chase:[
+{c:"Exclusive Leader card",id:"P-CS24",r:"L Promo",en:"~S$40–108",jp:"~S$27–68"},
+{c:"Playmat + deck box",id:"MAT-CS24",r:"Accessory",en:"~S$27–54",jp:"~S$20–40"}
+],staples:[]},
+
+{code:"CS-2025",name:"Championship Set 25-26",theme:"Event exclusive — latest season",jpn:"2025–2026",en:"2025–2026",owned:false,od:"",jpnEx:"Event exclusive",enEx:"Event exclusive",
+msrp:"~S$55",
+chase:[
+{c:"Exclusive Leader card(s)",id:"P-CS25",r:"L Promo",en:"~S$40–135",jp:"~S$27–81"},
+{c:"Playmat + accessories",id:"MAT-CS25",r:"Accessory",en:"~S$27–68",jp:"~S$20–40"}
+],staples:[]},
+
+// STANDARD BATTLE PACKS VOL 1-8
+{code:"SBP-01 to 08",name:"Standard Battle Packs Vol. 1–8",theme:"Tournament promos — 1 random alt art card per pack",jpn:"2022–2024",en:"N/A (JPN tournament exclusive)",owned:false,od:"",jpnEx:"1 of 3–4 random alt art cards per pack, given at Standard Battle events",enEx:"N/A — JPN exclusive",
+msrp:"~S$5 per pack",
+chase:[
+{c:"Various alt art reprints per volume (3–4 cards each)",id:"SBP-Various",r:"R/SR AA ★",en:"N/A",jp:"~S$4–20 per card"},
+{c:"Complete sets of all volumes",id:"SBP-All",r:"Collection",en:"N/A",jp:"~S$135–270 for all 8 sets"}
+],staples:[]},
+
+// LEARN TOGETHER
+{code:"LT-01",name:"Learn Together Deck Set",theme:"Teaching-focused 2-player starter set",jpn:"N/A",en:"2025",owned:false,od:"",jpnEx:"N/A",enEx:"Beginner product, 2 pre-built decks",
+msrp:"~S$27",
+chase:[
+{c:"No significant chase cards — beginner product",id:"LT-01",r:"Starter",en:"~S$20–27 set",jp:"N/A"}
+],staples:[
+{c:"Basic staples for new players",id:"LT-01",r:"Various",w:"Entry-level deck building cards"}
+]},
+
+// STARTER DECKS (GROUPED)
+{code:"ST-01 to 29",name:"Starter Decks (ST-01 through ST-29)",theme:"Pre-built decks — some contain chase Leader parallels",jpn:"Jul 2022 – Jan 2026",en:"Dec 2022 – Jan 2026",owned:false,od:"",jpnEx:"JPN versions, some exclusive parallels",enEx:"EN versions, some with bonus promo packs",
+msrp:"~S$22 each (ST-13/21: ~S$40)",
+chase:[
+{c:"Monkey D. Luffy (ST01-012 parallel)",id:"ST01-012",r:"SR AA ★",en:"~S$27–68",jp:"~S$14–40"},
+{c:"Roronoa Zoro (ST01-013 parallel)",id:"ST01-013",r:"SR AA ★",en:"~S$20–40",jp:"~S$11–27"},
+{c:"Various Leader parallels across ST sets",id:"ST-Various",r:"L AA ★",en:"~S$7–40 each",jp:"~S$4–27 each"},
+{c:"Tournament promo Luffy (ST01-012) — event exclusive",id:"ST01-012",r:"Tournament Promo",en:"S$9,585+ (PSA 10)",jp:"S$9,585+ (PSA 10)"}
+],staples:[
+{c:"Queen (Blocker)",id:"ST04-005",r:"SR",w:"Purple blocker staple across many formats"},
+{c:"Tashigi",id:"ST06-006",r:"C",w:"Navy 2000 counter staple"},
+{c:"Various starter Leaders used competitively",id:"ST-Various",r:"L",w:"Some ST Leaders remain meta-relevant (e.g. ST-29 Luffy)"}
+]}
+];
+
+const INV_DATA = {
+  "OP-01": {jpn:{r:5,c:4,u:5,t:14,tier:"S"}, en:{r:5,c:4,u:4,t:13,tier:"S"}},
+  "OP-02": {jpn:{r:5,c:4,u:4,t:13,tier:"S"}, en:{r:5,c:4,u:3,t:12,tier:"A"}},
+  "OP-03": {jpn:{r:5,c:4,u:3,t:12,tier:"A"}, en:{r:5,c:4,u:2,t:11,tier:"A"}},
+  "OP-04": {jpn:{r:5,c:3,u:4,t:12,tier:"A"}, en:{r:5,c:3,u:3,t:11,tier:"A"}},
+  "OP-05": {jpn:{r:5,c:5,u:4,t:14,tier:"S"}, en:{r:5,c:5,u:3,t:13,tier:"S"}},
+  "OP-06": {jpn:{r:4,c:3,u:3,t:10,tier:"B"}, en:{r:4,c:3,u:3,t:10,tier:"B"}},
+  "OP-07": {jpn:{r:4,c:3,u:3,t:10,tier:"B"}, en:{r:4,c:3,u:3,t:10,tier:"B"}},
+  "OP-08": {jpn:{r:4,c:3,u:3,t:10,tier:"B"}, en:{r:4,c:3,u:3,t:10,tier:"B"}},
+  "OP-09": {jpn:{r:4,c:4,u:3,t:11,tier:"A"}, en:{r:4,c:4,u:2,t:10,tier:"B"}},
+  "OP-10": {jpn:{r:4,c:3,u:3,t:10,tier:"B"}, en:{r:3,c:3,u:3,t:9,tier:"B"}},
+  "OP-11": {jpn:{r:3,c:3,u:4,t:10,tier:"B"}, en:{r:3,c:3,u:3,t:9,tier:"B"}},
+  "OP-12": {jpn:{r:2,c:3,u:2,t:7,tier:"C"}, en:{r:2,c:3,u:2,t:7,tier:"C"}},
+  "OP-13": {jpn:{r:4,c:5,u:5,t:14,tier:"S"}, en:{r:2,c:5,u:3,t:10,tier:"B"}},
+  "OP-14": {jpn:{r:1,c:3,u:2,t:6,tier:"C"}, en:{r:1,c:3,u:3,t:7,tier:"C"}},
+  "OP-15": {jpn:{r:1,c:4,u:3,t:8,tier:"B"}, en:{r:1,c:4,u:3,t:8,tier:"B"}},
+  "EB-01": {jpn:{r:4,c:3,u:4,t:11,tier:"A"}, en:{r:3,c:3,u:3,t:9,tier:"B"}},
+  "EB-02": {jpn:{r:3,c:2,u:3,t:8,tier:"B"}, en:{r:3,c:2,u:3,t:8,tier:"B"}},
+  "EB-03": {jpn:{r:4,c:4,u:4,t:12,tier:"A"}, en:{r:2,c:4,u:3,t:9,tier:"B"}},
+  "EB-04": {jpn:{r:2,c:3,u:2,t:7,tier:"C"}, en:null},
+  "PRB-01": {jpn:{r:4,c:5,u:5,t:14,tier:"S"}, en:{r:4,c:5,u:4,t:13,tier:"S"}},
+  "PRB-02": {jpn:{r:4,c:4,u:4,t:12,tier:"A"}, en:{r:4,c:4,u:4,t:12,tier:"A"}},
+};
+
+const TIER_COLORS = {S:"#ffd600",A:"#69f0ae",B:"#42a5f5",C:"#78909c"};
+const TIER_LABELS = {S:"BEST HOLD",A:"STRONG",B:"DECENT",C:"RISKY/WAIT"};
+
+function renderBar(val, max, color) {
+  const pct = (val/max)*100;
+  return '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:8px;background:#1a1a2e;border-radius:4px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:4px"></div></div><span style="font-size:11px;font-weight:700;color:'+color+'">'+val+'/'+max+'</span></div>';
+}
+
+function renderInv(code) {
+  const d = INV_DATA[code];
+  if (!d) return '<div style="color:#555;font-size:11px;padding:8px">No sealed investment data — non-booster product</div>';
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  // JPN side
+  if (d.jpn) {
+    const tc = TIER_COLORS[d.jpn.tier];
+    html += '<div style="background:#1a1a2e;border-radius:8px;padding:10px;border:1px solid '+tc+'44">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="color:#ff5252;font-weight:700;font-size:12px">🇯🇵 JPN</span><span style="background:'+tc+';color:#000;font-weight:800;font-size:10px;padding:2px 8px;border-radius:10px">TIER '+d.jpn.tier+' — '+TIER_LABELS[d.jpn.tier]+'</span></div>';
+    html += '<div style="font-size:10px;color:#aaa;margin-bottom:4px">Reprint Safety</div>'+renderBar(d.jpn.r,5,"#69f0ae");
+    html += '<div style="font-size:10px;color:#aaa;margin:4px 0 4px">Chase Strength</div>'+renderBar(d.jpn.c,5,"#ffd600");
+    html += '<div style="font-size:10px;color:#aaa;margin:4px 0 4px">Uniqueness</div>'+renderBar(d.jpn.u,5,"#e040fb");
+    html += '<div style="text-align:center;margin-top:8px;font-size:18px;font-weight:900;color:'+tc+'">'+d.jpn.t+'/15</div>';
+    html += '</div>';
+  }
+  // EN side
+  if (d.en) {
+    const tc = TIER_COLORS[d.en.tier];
+    html += '<div style="background:#1a1a2e;border-radius:8px;padding:10px;border:1px solid '+tc+'44">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="color:#42a5f5;font-weight:700;font-size:12px">🌐 EN</span><span style="background:'+tc+';color:#000;font-weight:800;font-size:10px;padding:2px 8px;border-radius:10px">TIER '+d.en.tier+' — '+TIER_LABELS[d.en.tier]+'</span></div>';
+    html += '<div style="font-size:10px;color:#aaa;margin-bottom:4px">Reprint Safety</div>'+renderBar(d.en.r,5,"#69f0ae");
+    html += '<div style="font-size:10px;color:#aaa;margin:4px 0 4px">Chase Strength</div>'+renderBar(d.en.c,5,"#ffd600");
+    html += '<div style="font-size:10px;color:#aaa;margin:4px 0 4px">Uniqueness</div>'+renderBar(d.en.u,5,"#e040fb");
+    html += '<div style="text-align:center;margin-top:8px;font-size:18px;font-weight:900;color:'+tc+'">'+d.en.t+'/15</div>';
+    html += '</div>';
+  } else {
+    html += '<div style="background:#1a1a2e;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:center;color:#555;font-size:11px">No standalone EN box</div>';
+  }
+  html += '</div>';
+  html += '<div style="font-size:9px;color:#555;margin-top:6px;text-align:center">Reprint Safety (5=no reprint risk) · Chase Strength (5=highest value cards) · Uniqueness (5=exclusive irreplaceable content)</div>';
+  return html;
+}
+
+let openSets = {};
+let activeTab = {};
+
+function renderSets(data) {
+  const container = document.getElementById("sets-container");
+  if (data.length === 0) { container.innerHTML = '<div class="no-results">No matching sets found</div>'; return; }
+  container.innerHTML = data.map(s => {
+    const isOpen = openSets[s.code];
+    const tab = activeTab[s.code] || "chase";
+    return `
+    <div class="set ${s.owned?'owned':''}">
+      <div class="set-header" onclick="toggleSet('${s.code}')">
+        <div>
+          <span class="set-code ${s.owned?'owned':''}">${s.owned?'🟢 ':''}${s.code}</span>
+          <span class="set-name">${s.name}</span>
+          <div class="set-theme">${s.theme}</div>
+        </div>
+        <span class="arrow">${isOpen?'▼':'▶'}</span>
+      </div>
+      <div class="set-body ${isOpen?'open':''}">
+        ${s.owned?`<div class="owned-badge">${s.od}</div>`:''}
+        <div class="version-grid">
+          <div class="version-box">
+            <div class="flag" style="color:#ff5252">🇯🇵 JAPANESE</div>
+            <div>Release: ${s.jpn}</div>
+            <div style="color:#888;margin-top:2px">24pk × 6 cards = 144 cards</div>
+            <div class="exclusive" style="color:#ffab00">${s.jpnEx}</div>
+          </div>
+          <div class="version-box">
+            <div class="flag" style="color:#42a5f5">🌐 ENGLISH</div>
+            <div>Release: ${s.en}</div>
+            <div style="color:#888;margin-top:2px">24pk × 12 cards = 288 cards</div>
+            <div class="exclusive" style="color:#7c4dff">${s.enEx}</div>
+          </div>
+        </div>
+        ${s.msrp ? '<div style="background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px"><span style="color:#69f0ae;font-weight:600">MSRP:</span> <span style="color:#ccc">'+s.msrp+'</span></div>' : ''}
+        <div class="tab-buttons">
+          <button class="tab-btn ${tab==='chase'?'active-chase':'inactive'}" onclick="setTab('${s.code}','chase')">Chase Cards (${s.chase.length})</button>
+          <button class="tab-btn ${tab==='staples'?'active-staples':'inactive'}" onclick="setTab('${s.code}','staples')">Staples (${s.staples.length})</button>
+          <button class="tab-btn ${tab==='invest'?'active-invest':'inactive'}" onclick="setTab('${s.code}','invest')">💰 Investment</button>
+        </div>
+        ${tab==='chase' ? s.chase.map(c => `
+          <a href="${LINK(c.id, c.r)}" target="_blank" class="card-row" style="border-left-color:${rarityColor(c.r)}">
+            <div>
+              <div class="card-name">${c.c}</div>
+              <div class="card-id">${c.id} · <span class="card-rarity" style="color:${rarityColor(c.r)}">${c.r}</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="price-label" style="color:#42a5f5">EN</div>
+              <div class="price-val">${c.en}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="price-label" style="color:#ff5252">JPN</div>
+              <div class="price-val">${c.jp}</div>
+            </div>
+          </a>
+        `).join('') : ''}
+        ${tab==='staples' ? (s.staples.length===0 ? '<div style="color:#555;font-size:11px;padding:8px">No competitive staples — promo/collector product</div>' : s.staples.map(c => `
+          <a href="${LINK(c.id, c.r)}" target="_blank" class="staple-row" style="border-left-color:${rarityColor(c.r)}">
+            <div>
+              <div class="card-name">${c.c}</div>
+              <div class="card-id">${c.id} · ${c.r}</div>
+            </div>
+            <div class="staple-why">${c.w}</div>
+          </a>
+        `).join('')) : ''}
+        ${tab==='invest' ? renderInv(s.code) : ''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById("stats").innerHTML = `<span style="color:#69f0ae">🟢 Owned: ${SETS.filter(s=>s.owned).length}</span><span style="color:#78909c">Total: ${SETS.length}</span><span style="color:#ffd600">Showing: ${data.length}</span>`;
+}
+
+function toggleSet(code) { openSets[code] = !openSets[code]; filterSets(); }
+function setTab(code, tab) { activeTab[code] = tab; filterSets(); }
+
+function filterSets() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const f = document.getElementById("filter").value;
+  const filtered = SETS.filter(s => {
+    if (f==="owned" && !s.owned) return false;
+    if (f==="notOwned" && s.owned) return false;
+    if (f==="standard" && !s.code.startsWith("OP")) return false;
+    if (f==="extra" && !s.code.startsWith("EB")) return false;
+    if (f==="premium" && !s.code.startsWith("PRB") && !s.code.startsWith("SBP")) return false;
+    if (f==="promo" && !["EP-01-08","PRIZE","WINNER"].includes(s.code)) return false;
+    if (f==="other" && (s.code.startsWith("OP") || s.code.startsWith("EB") || s.code.startsWith("PRB") || s.code.startsWith("SBP") || ["EP-01-08","PRIZE","WINNER"].includes(s.code))) return false;
+    if (q) {
+      const inSet = s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.theme.toLowerCase().includes(q);
+      const inCards = [...s.chase,...s.staples].some(c => c.c.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
+      return inSet || inCards;
+    }
+    return true;
+  });
+  renderSets(filtered);
+}
+
+filterSets();
+</script>
+</body>
+</html>
