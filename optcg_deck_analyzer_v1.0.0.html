@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPTCG Deck Analyzer v1.0.0</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   OPTCG DECK ANALYZER v1.0.0
+   Built: 10 Apr 2026 22:00 SGT
+   Author: Claude for Hafiz
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #06060e;
+  --surface: #0d0d1a;
+  --surface2: #141425;
+  --surface3: #1a1a30;
+  --border: #252540;
+  --border-hi: #3a3a60;
+  --red: #ff4757;
+  --red-dim: #ff475730;
+  --blue: #3b82f6;
+  --blue-dim: #3b82f630;
+  --gold: #fbbf24;
+  --gold-dim: #fbbf2420;
+  --green: #34d399;
+  --green-dim: #34d39920;
+  --purple: #a78bfa;
+  --cyan: #22d3ee;
+  --pink: #f472b6;
+  --text: #e2e2f0;
+  --text-dim: #8888aa;
+  --text-muted: #555570;
+  --owned-bg: #0a1a0a;
+  --owned-border: #1b5e20;
+  --radius: 8px;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.5; overflow-x: hidden; }
+button { font-family: var(--sans); cursor: pointer; border: none; }
+input, select, textarea { font-family: var(--mono); }
+
+/* Layout */
+.app { max-width: 1100px; margin: 0 auto; padding: 12px; }
+.header { text-align: center; padding: 24px 0 16px; }
+.header h1 { font-size: 28px; font-weight: 900; letter-spacing: -1px; background: linear-gradient(135deg, var(--red), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.header .ver { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 0; overflow-x: auto; }
+.tab { padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text-dim); background: none; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .2s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Cards grid */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.card-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; transition: border-color .2s; }
+.card-item:hover { border-color: var(--border-hi); }
+.card-item.owned { background: var(--owned-bg); border-color: var(--owned-border); }
+.card-name { font-weight: 600; flex: 1; margin-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-meta { display: flex; gap: 6px; align-items: center; font-family: var(--mono); font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
+.pill { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.pill-red { background: var(--red-dim); color: var(--red); }
+.pill-blue { background: var(--blue-dim); color: var(--blue); }
+.pill-gold { background: var(--gold-dim); color: var(--gold); }
+.pill-green { background: var(--green-dim); color: var(--green); }
+
+/* Deck list */
+.deck-section { margin-bottom: 20px; }
+.deck-section h3 { font-size: 14px; color: var(--gold); margin-bottom: 8px; font-weight: 700; }
+.deck-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.deck-table th { text-align: left; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.deck-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.deck-table tr:hover { background: var(--surface2); }
+.deck-table .qty { font-family: var(--mono); font-weight: 700; color: var(--gold); width: 30px; text-align: center; }
+.deck-table .cost-col { font-family: var(--mono); width: 40px; text-align: center; }
+.deck-table .power-col { font-family: var(--mono); width: 50px; text-align: center; }
+.deck-table .score-col { font-family: var(--mono); width: 50px; text-align: right; color: var(--cyan); }
+.own-check { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+.missing { color: var(--red); }
+.have { color: var(--green); }
+
+/* Leader card */
+.leader-card { background: var(--surface2); border: 1px solid var(--border-hi); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.leader-card h2 { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+.leader-card .leader-stats { display: flex; gap: 16px; font-family: var(--mono); font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+.leader-card .leader-effect { font-size: 12px; color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; }
+
+/* Stats bar */
+.stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; min-width: 120px; flex: 1; }
+.stat-box .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.stat-box .value { font-size: 22px; font-weight: 900; font-family: var(--mono); }
+.stat-box .value.red { color: var(--red); }
+.stat-box .value.blue { color: var(--blue); }
+.stat-box .value.green { color: var(--green); }
+.stat-box .value.gold { color: var(--gold); }
+
+/* Cost curve chart */
+.cost-curve { display: flex; align-items: flex-end; gap: 3px; height: 80px; margin: 12px 0; }
+.cost-bar { flex: 1; background: var(--blue); border-radius: 3px 3px 0 0; position: relative; min-width: 20px; transition: height .3s; }
+.cost-bar .bar-label { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 9px; font-family: var(--mono); color: var(--text-muted); }
+.cost-bar .bar-count { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; font-family: var(--mono); color: var(--text); font-weight: 600; }
+
+/* Builder controls */
+.controls-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.controls-row select, .controls-row input { padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; }
+.controls-row select { min-width: 250px; }
+.btn { padding: 8px 16px; border-radius: var(--radius); font-weight: 700; font-size: 13px; transition: all .2s; }
+.btn-primary { background: linear-gradient(135deg, var(--red), var(--blue)); color: #fff; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px #ff475740; }
+.btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+.btn-secondary:hover { border-color: var(--border-hi); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-green { background: var(--green); color: #000; }
+
+/* Collection manager */
+.coll-search { width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; margin-bottom: 12px; }
+.coll-stats { font-family: var(--mono); font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+
+/* Shopping list */
+.shop-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.shop-priority { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+.priority-high { background: var(--red-dim); color: var(--red); }
+.priority-mid { background: var(--gold-dim); color: var(--gold); }
+.priority-low { background: var(--blue-dim); color: var(--blue); }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .header h1 { font-size: 22px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .controls-row select { min-width: 100%; }
+  .stats-row { flex-direction: column; }
+}
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text-dim); }
+.loading .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .6s linear infinite; margin-bottom: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header">
+    <h1>⚔ OPTCG Deck Analyzer</h1>
+    <div class="ver">v1.0.0 · 10 Apr 2026 22:00 SGT · Rule-Based Engine · 2,622 Cards</div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" onclick="showTab(0)">🎯 Auto Builder</button>
+    <button class="tab" onclick="showTab(1)">🔴🔵 Lucy (OP15)</button>
+    <button class="tab" onclick="showTab(2)">🔴🔵 Ace (OP13)</button>
+    <button class="tab" onclick="showTab(3)">📦 My Collection</button>
+    <button class="tab" onclick="showTab(4)">🛒 Shopping List</button>
+  </div>
+
+  <!-- ═══ TAB 0: AUTO BUILDER ═══ -->
+  <div class="panel active" id="panel-0">
+    <div class="controls-row">
+      <select id="leader-select" onchange="onLeaderChange()">
+        <option value="">— Select a Leader —</option>
+      </select>
+      <label style="font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:4px;">
+        <input type="checkbox" id="owned-only-toggle" onchange="onLeaderChange()"> Owned cards only
+      </label>
+      <button class="btn btn-primary" onclick="buildDeck()">Build Deck</button>
+    </div>
+    <div id="builder-output"></div>
+  </div>
+
+  <!-- ═══ TAB 1: LUCY ═══ -->
+  <div class="panel" id="panel-1">
+    <div id="lucy-output"><div class="loading"><div class="spinner"></div><br>Loading Lucy build...</div></div>
+  </div>
+
+  <!-- ═══ TAB 2: ACE ═══ -->
+  <div class="panel" id="panel-2">
+    <div id="ace-output"><div class="loading"><div class="spinner"></div><br>Loading Ace build...</div></div>
+  </div>
+
+  <!-- ═══ TAB 3: COLLECTION ═══ -->
+  <div class="panel" id="panel-3">
+    <div class="controls-row">
+      <input class="coll-search" id="coll-search" placeholder="Search cards by name, ID, set, color, type..." oninput="renderCollection()">
+    </div>
+    <div class="controls-row">
+      <button class="btn btn-secondary btn-sm" onclick="exportCollection()">Export CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-csv').click()">Import CSV</button>
+      <input type="file" id="import-csv" accept=".csv" style="display:none" onchange="importCollection(event)">
+      <button class="btn btn-secondary btn-sm" onclick="clearCollection()">Clear All</button>
+      <span class="coll-stats" id="coll-stats"></span>
+    </div>
+    <div id="coll-grid" class="card-grid"></div>
+  </div>
+
+  <!-- ═══ TAB 4: SHOPPING LIST ═══ -->
+  <div class="panel" id="panel-4">
+    <div class="controls-row">
+      <select id="shop-deck-select" onchange="renderShoppingList()">
+        <option value="lucy">Lucy (OP15-002) Build</option>
+        <option value="ace">Ace (OP13-002) Build</option>
+        <option value="custom">Last Auto-Built Deck</option>
+      </select>
+    </div>
+    <div id="shop-output"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ENGINE: OPTCG Deck Analyzer v1.0.0
+   Rule-based scoring + auto deck construction
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let ALL_CARDS = [];
+let LEADERS = [];
+let PLAYABLE = []; // non-leader, non-DON
+let OWNED = {}; // { card_id: quantity }
+let LAST_BUILT = null; // last auto-built deck
+
+// ── Data Loading ────────────────────────────────────────────────────
+async function init() {
+  try {
+    // Try loading from same directory (GitHub Pages)
+    let resp = await fetch('optcg_cards_merged.json');
+    if (!resp.ok) resp = await fetch('data/optcg_cards_merged.json');
+    if (!resp.ok) throw new Error('JSON not found');
+    ALL_CARDS = await resp.json();
+  } catch(e) {
+    // Fallback: prompt file upload
+    document.getElementById('app').innerHTML = `
+      <div class="header"><h1>⚔ OPTCG Deck Analyzer</h1>
+      <div class="ver">v1.0.0 · Load your card database to begin</div></div>
+      <div style="text-align:center;padding:40px;">
+        <p style="margin-bottom:16px;color:var(--text-dim);">Could not auto-load optcg_cards_merged.json. Please select it manually:</p>
+        <input type="file" accept=".json" onchange="loadJsonFile(event)" style="color:var(--text);">
+      </div>`;
+    return;
+  }
+  afterLoad();
+}
+
+function loadJsonFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    ALL_CARDS = JSON.parse(ev.target.result);
+    document.getElementById('app').innerHTML = ''; // clear
+    location.reload(); // simplest way to re-init
+  };
+  reader.readAsText(file);
+}
+
+function afterLoad() {
+  // Fix data quality: cards with non-numeric cost
+  ALL_CARDS.forEach(c => {
+    if (c.cost && !/^\d+$/.test(c.cost)) c.cost = '';
+  });
+
+  LEADERS = ALL_CARDS.filter(c => c.card_type === 'LEADER');
+  PLAYABLE = ALL_CARDS.filter(c => ['CHARACTER','EVENT','STAGE'].includes(c.card_type));
+
+  // Load saved collection
+  try {
+    const saved = localStorage.getItem('optcg_collection');
+    if (saved) OWNED = JSON.parse(saved);
+  } catch(e) {}
+
+  populateLeaderSelect();
+  renderLucyBuild();
+  renderAceBuild();
+  renderCollection();
+}
+
+function saveCollection() {
+  try { localStorage.setItem('optcg_collection', JSON.stringify(OWNED)); } catch(e) {}
+}
+
+// ── Tab Navigation ──────────────────────────────────────────────────
+function showTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+  if (idx === 3) renderCollection();
+  if (idx === 4) renderShoppingList();
+}
+
+// ── Leader Select ───────────────────────────────────────────────────
+function populateLeaderSelect() {
+  const sel = document.getElementById('leader-select');
+  const sorted = [...LEADERS].sort((a,b) => a.card_id.localeCompare(b.card_id));
+  sorted.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.card_id;
+    opt.textContent = `${l.card_id} — ${cleanName(l.name_en)} [${l.color}] P:${l.power} L:${l.life}`;
+    sel.appendChild(opt);
+  });
+}
+
+function cleanName(n) {
+  return (n||'').replace(/\s*\(Alternate Art\)/i,'').replace(/\s*\(Parallel\)/i,'').replace(/\s*\(\d+\)/,'').trim();
+}
+
+function onLeaderChange() {
+  // Clear previous output
+  document.getElementById('builder-output').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCORING ENGINE
+// ═══════════════════════════════════════════════════════════════════
+
+function getLeaderColors(leader) {
+  const c = (leader.color || '').toLowerCase();
+  const colors = [];
+  if (c.includes('red')) colors.push('red');
+  if (c.includes('blue')) colors.push('blue');
+  if (c.includes('green')) colors.push('green');
+  if (c.includes('purple')) colors.push('purple');
+  if (c.includes('yellow')) colors.push('yellow');
+  if (c.includes('black')) colors.push('black');
+  return colors;
+}
+
+function cardMatchesLeaderColor(card, leaderColors) {
+  const cc = (card.color || '').toLowerCase();
+  return leaderColors.some(lc => cc.includes(lc));
+}
+
+function scoreCard(card, leader, leaderColors) {
+  let score = 0;
+  const effect = (card.effect_en || '').toLowerCase();
+  const family = (card.type_family || '').toLowerCase();
+  const leaderFamily = (leader.type_family || '').toLowerCase();
+  const leaderEffect = (leader.effect_en || '').toLowerCase();
+  const cost = parseInt(card.cost) || 0;
+  const power = parseInt(card.power) || 0;
+  const counter = parseInt(card.counter) || 0;
+
+  // 1. Color match (mandatory filter, but also bonus for dual-color match)
+  if (!cardMatchesLeaderColor(card, leaderColors)) return -1;
+  const cardColors = getLeaderColors(card);
+  const colorOverlap = cardColors.filter(c => leaderColors.includes(c)).length;
+  if (colorOverlap >= 2) score += 5; // dual color match bonus
+
+  // 2. Counter value (defense)
+  if (counter >= 2000) score += 8;
+  else if (counter >= 1000) score += 4;
+
+  // 3. Cost efficiency (power/cost ratio)
+  if (cost > 0 && power > 0) {
+    const ratio = power / cost;
+    if (ratio >= 2000) score += 3;
+    if (ratio >= 1500) score += 2;
+  }
+
+  // 4. Type family synergy with leader
+  if (leaderFamily && family) {
+    const leaderFamilies = leaderFamily.split(/\s+/);
+    const cardFamilies = family.split(/\s+/);
+    const familyMatch = leaderFamilies.some(lf => cardFamilies.some(cf => cf === lf && lf.length > 3));
+    if (familyMatch) score += 10;
+  }
+
+  // 5. Effect keyword scoring
+  if (effect.includes('blocker')) score += 4;
+  if (effect.includes('rush')) score += 3;
+  if (effect.includes('double attack')) score += 3;
+  if (effect.includes('draw') && effect.includes('card')) score += 3;
+  if (effect.includes('[on play]')) score += 2;
+  if (effect.includes('[when attacking]')) score += 2;
+  if (effect.includes('[on k.o.]')) score += 1;
+  if (effect.includes('banish')) score += 2;
+
+  // 6. Leader-specific synergies
+  // Ace: wants 6000+ power characters, trash from hand, damage-based draw
+  if (leader.card_id === 'OP13-002') {
+    if (card.card_type === 'CHARACTER' && power >= 6000) score += 8;
+    if (effect.includes('trash') && effect.includes('hand')) score += 3;
+    if (effect.includes('k.o.') && power >= 6000) score += 4;
+    if (family.includes('whitebeard')) score += 6;
+  }
+
+  // Lucy: wants Events cost 3+, Stage cards, trash events for power
+  if (leader.card_id === 'OP15-002') {
+    if (card.card_type === 'EVENT' && cost >= 3) score += 10;
+    if (card.card_type === 'STAGE') score += 6;
+    if (card.card_type === 'EVENT') score += 4;
+    if (family.includes('revolutionary')) score += 5;
+    if (family.includes('dressrosa')) score += 5;
+    // Lucy wants non-counter cards less (she trashes from hand)
+    // Actually Lucy wants events/stages to trash — characters with counters are still good for defense
+  }
+
+  // 7. Rarity tiebreaker (higher rarity = usually better card)
+  const rarityBonus = { 'SEC': 3, 'SR': 2, 'R': 1, 'UC': 0, 'C': 0 };
+  score += rarityBonus[card.rarity] || 0;
+
+  // 8. Modern set preference (newer cards tend to be stronger)
+  const setNum = parseInt((card.set_id || '').replace(/\D/g, '')) || 0;
+  if (card.set_id.startsWith('OP-') && setNum >= 13) score += 2;
+  if (card.set_id.startsWith('OP-') && setNum >= 10) score += 1;
+
+  return score;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DECK BUILDER
+// ═══════════════════════════════════════════════════════════════════
+
+function buildDeck() {
+  const leaderId = document.getElementById('leader-select').value;
+  if (!leaderId) { alert('Select a leader first'); return; }
+
+  const leader = LEADERS.find(l => l.card_id === leaderId);
+  if (!leader) return;
+
+  const ownedOnly = document.getElementById('owned-only-toggle').checked;
+  const leaderColors = getLeaderColors(leader);
+
+  // Score all playable cards
+  let candidates = PLAYABLE.map(c => ({
+    card: c,
+    score: scoreCard(c, leader, leaderColors)
+  })).filter(x => x.score >= 0); // -1 means wrong color
+
+  if (ownedOnly) {
+    candidates = candidates.filter(x => (OWNED[x.card.card_id] || 0) > 0);
+  }
+
+  // Sort by score descending
+  candidates.sort((a,b) => b.score - a.score);
+
+  // Build 50-card deck (max 4 copies of each card name)
+  const deck = [];
+  const nameCounts = {};
+  const DECK_SIZE = 50;
+
+  // Ideal cost curve targets
+  const costTargets = { 0:0, 1:6, 2:8, 3:8, 4:8, 5:6, 6:4, 7:4, 8:3, 9:2, 10:1 };
+
+  for (const {card, score} of candidates) {
+    if (deck.length >= DECK_SIZE) break;
+
+    const name = cleanName(card.name_en);
+    const count = nameCounts[name] || 0;
+    if (count >= 4) continue;
+
+    // If owned-only, respect quantity
+    if (ownedOnly) {
+      const ownedQty = OWNED[card.card_id] || 0;
+      // Count how many of this exact card_id we already added
+      const addedQty = deck.filter(d => d.card.card_id === card.card_id).length;
+      if (addedQty >= ownedQty) continue;
+    }
+
+    const cost = parseInt(card.cost) || 0;
+    const costKey = Math.min(cost, 10);
+
+    deck.push({ card, score });
+    nameCounts[name] = count + 1;
+  }
+
+  // If deck < 50 and owned-only, show warning
+  LAST_BUILT = { leader, deck, ownedOnly };
+  renderBuiltDeck(leader, deck, ownedOnly);
+}
+
+function renderBuiltDeck(leader, deck, ownedOnly) {
+  const out = document.getElementById('builder-output');
+  const leaderColors = getLeaderColors(leader);
+
+  // Stats
+  const chars = deck.filter(d => d.card.card_type === 'CHARACTER');
+  const events = deck.filter(d => d.card.card_type === 'EVENT');
+  const stages = deck.filter(d => d.card.card_type === 'STAGE');
+  const counterCards = deck.filter(d => parseInt(d.card.counter) >= 1000);
+  const ownedCount = deck.filter(d => (OWNED[d.card.card_id] || 0) > 0).length;
+
+  // Cost curve
+  const costDist = {};
+  deck.forEach(d => {
+    const c = Math.min(parseInt(d.card.cost) || 0, 10);
+    costDist[c] = (costDist[c] || 0) + 1;
+  });
+  const maxCost = Math.max(...Object.values(costDist), 1);
+
+  let costBars = '';
+  for (let i = 0; i <= 10; i++) {
+    const cnt = costDist[i] || 0;
+    const pct = (cnt / maxCost) * 100;
+    costBars += `<div class="cost-bar" style="height:${Math.max(pct,2)}%;background:${i<=2?'var(--blue)':i<=5?'var(--green)':i<=7?'var(--gold)':'var(--red)'}">
+      <span class="bar-count">${cnt||''}</span><span class="bar-label">${i}${i===10?'+':''}</span></div>`;
+  }
+
+  // Group deck by cost for display
+  const grouped = {};
+  deck.forEach(d => {
+    const c = parseInt(d.card.cost) || 0;
+    if (!grouped[c]) grouped[c] = [];
+    grouped[c].push(d);
+  });
+
+  let deckRows = '';
+  Object.keys(grouped).sort((a,b)=>a-b).forEach(cost => {
+    grouped[cost].forEach(({card, score}) => {
+      const owned = (OWNED[card.card_id] || 0) > 0;
+      const ownerIcon = owned ? '<span class="have">✓</span>' : '<span class="missing">✗</span>';
+      deckRows += `<tr>
+        <td class="cost-col">${card.cost||'-'}</td>
+        <td>${ownerIcon}</td>
+        <td><strong>${cleanName(card.name_en)}</strong><br><span style="font-size:10px;color:var(--text-muted)">${card.card_id} · ${card.type_family||''}</span></td>
+        <td class="power-col">${card.power||'-'}</td>
+        <td style="text-align:center;font-family:var(--mono);font-size:11px">${card.counter||'-'}</td>
+        <td><span class="pill ${card.card_type==='EVENT'?'pill-gold':card.card_type==='STAGE'?'pill-green':'pill-blue'}">${card.card_type}</span></td>
+        <td class="score-col">${score.toFixed(0)}</td>
+      </tr>`;
+    });
+  });
+
+  out.innerHTML = `
+    <div class="leader-card">
+      <h2>${cleanName(leader.name_en)}</h2>
+      <div class="leader-stats">
+        <span>${leader.card_id}</span>
+        <span style="color:var(--${leaderColors[0]})">${leader.color}</span>
+        <span>Power: ${leader.power}</span>
+        <span>Life: ${leader.life}</span>
+        <span>Family: ${leader.type_family}</span>
+      </div>
+      <div class="leader-effect">${leader.effect_en}</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="label">Deck Size</div><div class="value ${deck.length===50?'green':'red'}">${deck.length}/50</div></div>
+      <div class="stat-box"><div class="label">Characters</div><div class="value blue">${chars.length}</div></div>
+      <div class="stat-box"><div class="label">Events</div><div class="value gold">${events.length}</div></div>
+      <div class="stat-box"><div class="label">Stages</div><div class="value green">${stages.length}</div></div>
+      <div class="stat-box"><div class="label">Counter Cards</div><div class="value">${counterCards.length}</div></div>
+      <div class="stat-box"><div class="label">Owned</div><div class="value ${ownedCount===deck.length?'green':'red'}">${ownedCount}/${deck.length}</div></div>
+    </div>
+
+    ${deck.length<50?`<div style="background:var(--red-dim);border:1px solid var(--red);padding:10px;border-radius:var(--radius);margin-bottom:16px;font-size:12px;color:var(--red)">
+      ⚠ Deck is under 50 cards. ${ownedOnly?'You need more cards in your collection.':'Not enough matching cards found.'}</div>`:''}
+
+    <div class="deck-section">
+      <h3>Cost Curve</h3>
+      <div class="cost-curve">${costBars}</div>
+      <div style="height:20px"></div>
+    </div>
+
+    <div class="deck-section">
+      <h3>Deck List (sorted by cost)</h3>
+      <table class="deck-table">
+        <tr><th>Cost</th><th>Own</th><th>Card</th><th>Power</th><th>Counter</th><th>Type</th><th>Score</th></tr>
+        ${deckRows}
+      </table>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LUCY BUILD (OP15-002)
+// ═══════════════════════════════════════════════════════════════════
+
+function renderLucyBuild() {
+  const leader = LEADERS.find(l => l.card_id === 'OP15-002');
+  if (!leader) {
+    document.getElementById('lucy-output').innerHTML = '<p style="color:var(--red)">Lucy (OP15-002) not found in database.</p>';
+    return;
+  }
+
+  const leaderColors = getLeaderColors(leader);
+
+  // Score and build
+  let candidates = PLAYABLE.map(c => ({
+    card: c,
+    score: scoreCard(c, leader, leaderColors)
+  })).filter(x => x.score >= 0);
+  candidates.sort((a,b) => b.score - a.score);
+
+  const deck = [];
+  const nameCounts = {};
+  for (const {card, score} of candidates) {
+    if (deck.length >= 50) break;
+    const name = cleanName(card.name_en);
+    if ((nameCounts[name] || 0) >= 4) continue;
+    deck.push({ card, score });
+    nameCounts[name] = (nameCounts[name] || 0) + 1;
+  }
+
+  renderFocusedBuild('lucy-output', leader, deck, [
+    'Lucy wants Events (cost 3+) and Stages to trash from hand for power boosts.',
+    'Her [Activate: Main] draws a card after playing a 3+ cost Event — so load up on impactful Events.',
+    'Ideal ratio: ~20 Characters, ~20 Events, ~5 Stages, ~5 flex.',
+    'Key families: Revolutionary Army, Dressrosa, Straw Hat Crew.',
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACE BUILD (OP13-002)
+// ═══════════════════════════════════════════════════════════════════
+
+function renderAceBuild() {
+  const leader = LEADERS.find(l => l.card_id === 'OP13-002');
+  if (!leader) {
+    document.getElementById('ace-output').innerHTML = '<p style="color:var(--red)">Ace (OP13-002) not found in database.</p>';
+    return;
+  }
+
+  const leaderColors = getLeaderColors(leader);
+
+  let candidates = PLAYABLE.map(c => ({
+    card: c,
+    score: scoreCard(c, leader, leaderColors)
+  })).filter(x => x.score >= 0);
+  candidates.sort((a,b) => b.score - a.score);
+
+  const deck = [];
+  const nameCounts = {};
+  for (const {card, score} of candidates) {
+    if (deck.length >= 50) break;
+    const name = cleanName(card.name_en);
+    if ((nameCounts[name] || 0) >= 4) continue;
+    deck.push({ card, score });
+    nameCounts[name] = (nameCounts[name] || 0) + 1;
+  }
+
+  renderFocusedBuild('ace-output', leader, deck, [
+    'Ace draws when you take damage OR when a 6000+ power Character is KO\'d — pack the deck with beefy bodies.',
+    'His defensive trigger trashes from hand to give opponent -2000 power.',
+    'Ideal: heavy on 6000+ power Characters, some counter cards for defense, minimal low-cost filler.',
+    'Key families: Whitebeard Pirates, Straw Hat Crew.',
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED FOCUSED BUILD RENDERER
+// ═══════════════════════════════════════════════════════════════════
+
+function renderFocusedBuild(targetId, leader, deck, tips) {
+  const leaderColors = getLeaderColors(leader);
+  const chars = deck.filter(d => d.card.card_type === 'CHARACTER');
+  const events = deck.filter(d => d.card.card_type === 'EVENT');
+  const stages = deck.filter(d => d.card.card_type === 'STAGE');
+  const counterCards = deck.filter(d => parseInt(d.card.counter) >= 1000);
+  const ownedCount = deck.filter(d => (OWNED[d.card.card_id] || 0) > 0).length;
+  const missingCount = deck.length - ownedCount;
+
+  // Cost curve
+  const costDist = {};
+  deck.forEach(d => {
+    const c = Math.min(parseInt(d.card.cost) || 0, 10);
+    costDist[c] = (costDist[c] || 0) + 1;
+  });
+  const maxCost = Math.max(...Object.values(costDist), 1);
+  let costBars = '';
+  for (let i = 0; i <= 10; i++) {
+    const cnt = costDist[i] || 0;
+    const pct = (cnt / maxCost) * 100;
+    costBars += `<div class="cost-bar" style="height:${Math.max(pct,2)}%;background:${i<=2?'var(--blue)':i<=5?'var(--green)':i<=7?'var(--gold)':'var(--red)'}">
+      <span class="bar-count">${cnt||''}</span><span class="bar-label">${i}${i===10?'+':''}</span></div>`;
+  }
+
+  // Deck rows grouped by type
+  function makeRows(items) {
+    return items.sort((a,b) => (parseInt(a.card.cost)||0) - (parseInt(b.card.cost)||0))
+      .map(({card, score}) => {
+        const owned = (OWNED[card.card_id] || 0) > 0;
+        return `<tr>
+          <td class="cost-col">${card.cost||'-'}</td>
+          <td>${owned?'<span class="have">✓</span>':'<span class="missing">✗</span>'}</td>
+          <td><strong>${cleanName(card.name_en)}</strong><br><span style="font-size:10px;color:var(--text-muted)">${card.card_id} · ${card.rarity} · ${card.type_family||''}</span></td>
+          <td class="power-col">${card.power||'-'}</td>
+          <td style="text-align:center;font-family:var(--mono);font-size:11px">${card.counter||'-'}</td>
+          <td class="score-col">${score.toFixed(0)}</td>
+        </tr>`;
+      }).join('');
+  }
+
+  const tipsHtml = tips.map(t => `<li style="margin-bottom:4px">${t}</li>`).join('');
+
+  document.getElementById(targetId).innerHTML = `
+    <div class="leader-card">
+      <h2>${cleanName(leader.name_en)}</h2>
+      <div class="leader-stats">
+        <span>${leader.card_id}</span>
+        <span style="color:var(--${leaderColors[0]})">${leader.color}</span>
+        <span>Power: ${leader.power}</span>
+        <span>Life: ${leader.life}</span>
+        <span>Family: ${leader.type_family}</span>
+      </div>
+      <div class="leader-effect">${leader.effect_en}</div>
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:12px;">
+      <strong style="color:var(--gold)">Strategy Notes:</strong>
+      <ul style="margin-top:6px;padding-left:18px;color:var(--text-dim);line-height:1.8">${tipsHtml}</ul>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="label">Characters</div><div class="value blue">${chars.length}</div></div>
+      <div class="stat-box"><div class="label">Events</div><div class="value gold">${events.length}</div></div>
+      <div class="stat-box"><div class="label">Stages</div><div class="value green">${stages.length}</div></div>
+      <div class="stat-box"><div class="label">Counter Cards</div><div class="value">${counterCards.length}</div></div>
+      <div class="stat-box"><div class="label">Owned</div><div class="value ${ownedCount===deck.length?'green':'gold'}">${ownedCount}/${deck.length}</div></div>
+      <div class="stat-box"><div class="label">Missing</div><div class="value ${missingCount===0?'green':'red'}">${missingCount}</div></div>
+    </div>
+
+    <div class="deck-section">
+      <h3>Cost Curve</h3>
+      <div class="cost-curve">${costBars}</div>
+      <div style="height:20px"></div>
+    </div>
+
+    ${chars.length?`<div class="deck-section"><h3>Characters (${chars.length})</h3>
+      <table class="deck-table"><tr><th>Cost</th><th>Own</th><th>Card</th><th>Power</th><th>Counter</th><th>Score</th></tr>${makeRows(chars)}</table></div>`:''}
+
+    ${events.length?`<div class="deck-section"><h3>Events (${events.length})</h3>
+      <table class="deck-table"><tr><th>Cost</th><th>Own</th><th>Card</th><th>Power</th><th>Counter</th><th>Score</th></tr>${makeRows(events)}</table></div>`:''}
+
+    ${stages.length?`<div class="deck-section"><h3>Stages (${stages.length})</h3>
+      <table class="deck-table"><tr><th>Cost</th><th>Own</th><th>Card</th><th>Power</th><th>Counter</th><th>Score</th></tr>${makeRows(stages)}</table></div>`:''}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COLLECTION MANAGER
+// ═══════════════════════════════════════════════════════════════════
+
+let collPage = 0;
+const COLL_PAGE_SIZE = 100;
+
+function renderCollection() {
+  const search = (document.getElementById('coll-search')?.value || '').toLowerCase();
+  let filtered = PLAYABLE;
+  if (search) {
+    filtered = filtered.filter(c =>
+      (c.card_id||'').toLowerCase().includes(search) ||
+      (c.name_en||'').toLowerCase().includes(search) ||
+      (c.color||'').toLowerCase().includes(search) ||
+      (c.set_id||'').toLowerCase().includes(search) ||
+      (c.type_family||'').toLowerCase().includes(search) ||
+      (c.card_type||'').toLowerCase().includes(search) ||
+      (c.rarity||'').toLowerCase().includes(search)
+    );
+  }
+
+  // Also include leaders in search
+  let leaders = LEADERS;
+  if (search) {
+    leaders = leaders.filter(c =>
+      (c.card_id||'').toLowerCase().includes(search) ||
+      (c.name_en||'').toLowerCase().includes(search)
+    );
+  }
+  const allItems = [...leaders, ...filtered];
+
+  const ownedTotal = Object.keys(OWNED).length;
+  const ownedQty = Object.values(OWNED).reduce((a,b)=>a+b, 0);
+  document.getElementById('coll-stats').textContent = `${ownedTotal} unique cards owned (${ownedQty} total qty) · Showing ${Math.min(allItems.length, COLL_PAGE_SIZE)} of ${allItems.length}`;
+
+  const page = allItems.slice(0, COLL_PAGE_SIZE);
+  const grid = document.getElementById('coll-grid');
+  grid.innerHTML = page.map(c => {
+    const qty = OWNED[c.card_id] || 0;
+    const isOwned = qty > 0;
+    return `<div class="card-item ${isOwned?'owned':''}">
+      <div class="card-name" title="${c.effect_en||''}">${c.card_id} · ${cleanName(c.name_en)}</div>
+      <div class="card-meta">
+        <span class="pill ${c.color?.toLowerCase().includes('red')?'pill-red':c.color?.toLowerCase().includes('blue')?'pill-blue':'pill-gold'}">${c.color||'?'}</span>
+        <span>${c.rarity}</span>
+        <span style="display:flex;align-items:center;gap:3px;">
+          <button class="btn btn-sm btn-secondary" onclick="changeQty('${c.card_id}',-1)" style="padding:2px 6px;font-size:10px;">−</button>
+          <span style="min-width:18px;text-align:center;font-weight:700;color:${isOwned?'var(--green)':'var(--text-muted)'}">${qty}</span>
+          <button class="btn btn-sm btn-secondary" onclick="changeQty('${c.card_id}',1)" style="padding:2px 6px;font-size:10px;">+</button>
+        </span>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (allItems.length > COLL_PAGE_SIZE) {
+    grid.innerHTML += `<div style="grid-column:1/-1;text-align:center;padding:12px;color:var(--text-dim);font-size:12px;">
+      Showing first ${COLL_PAGE_SIZE} results. Use search to narrow down.</div>`;
+  }
+}
+
+function changeQty(cardId, delta) {
+  const current = OWNED[cardId] || 0;
+  const newQty = Math.max(0, Math.min(99, current + delta));
+  if (newQty === 0) delete OWNED[cardId];
+  else OWNED[cardId] = newQty;
+  saveCollection();
+  renderCollection();
+}
+
+function exportCollection() {
+  if (Object.keys(OWNED).length === 0) { alert('Collection is empty'); return; }
+  let csv = 'card_id,quantity,name_en,color,rarity,set_id\n';
+  for (const [id, qty] of Object.entries(OWNED)) {
+    const card = ALL_CARDS.find(c => c.card_id === id);
+    csv += `${id},${qty},"${cleanName(card?.name_en||'')}",${card?.color||''},${card?.rarity||''},${card?.set_id||''}\n`;
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'optcg_collection.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importCollection(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const lines = ev.target.result.split('\n').slice(1); // skip header
+    let imported = 0;
+    lines.forEach(line => {
+      const parts = line.split(',');
+      if (parts.length >= 2) {
+        const id = parts[0].trim();
+        const qty = parseInt(parts[1]) || 0;
+        if (id && qty > 0) {
+          OWNED[id] = qty;
+          imported++;
+        }
+      }
+    });
+    saveCollection();
+    renderCollection();
+    alert(`Imported ${imported} cards.`);
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function clearCollection() {
+  if (!confirm('Clear entire collection? This cannot be undone.')) return;
+  OWNED = {};
+  saveCollection();
+  renderCollection();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHOPPING LIST
+// ═══════════════════════════════════════════════════════════════════
+
+function renderShoppingList() {
+  const target = document.getElementById('shop-deck-select').value;
+  let deck = [];
+  let leaderName = '';
+
+  if (target === 'lucy') {
+    const leader = LEADERS.find(l => l.card_id === 'OP15-002');
+    if (leader) {
+      const lc = getLeaderColors(leader);
+      let cands = PLAYABLE.map(c => ({ card: c, score: scoreCard(c, leader, lc) })).filter(x => x.score >= 0);
+      cands.sort((a,b) => b.score - a.score);
+      const nc = {};
+      for (const {card, score} of cands) {
+        if (deck.length >= 50) break;
+        const n = cleanName(card.name_en);
+        if ((nc[n]||0) >= 4) continue;
+        deck.push({ card, score });
+        nc[n] = (nc[n]||0) + 1;
+      }
+      leaderName = 'Lucy (OP15-002)';
+    }
+  } else if (target === 'ace') {
+    const leader = LEADERS.find(l => l.card_id === 'OP13-002');
+    if (leader) {
+      const lc = getLeaderColors(leader);
+      let cands = PLAYABLE.map(c => ({ card: c, score: scoreCard(c, leader, lc) })).filter(x => x.score >= 0);
+      cands.sort((a,b) => b.score - a.score);
+      const nc = {};
+      for (const {card, score} of cands) {
+        if (deck.length >= 50) break;
+        const n = cleanName(card.name_en);
+        if ((nc[n]||0) >= 4) continue;
+        deck.push({ card, score });
+        nc[n] = (nc[n]||0) + 1;
+      }
+      leaderName = 'Ace (OP13-002)';
+    }
+  } else if (target === 'custom' && LAST_BUILT) {
+    deck = LAST_BUILT.deck;
+    leaderName = cleanName(LAST_BUILT.leader.name_en);
+  }
+
+  // Find missing cards
+  const missing = deck.filter(d => (OWNED[d.card.card_id] || 0) === 0);
+  missing.sort((a,b) => b.score - a.score);
+
+  const out = document.getElementById('shop-output');
+  if (missing.length === 0) {
+    out.innerHTML = `<div style="text-align:center;padding:40px;color:var(--green);font-size:14px;">
+      ✅ You own all ${deck.length} cards for the ${leaderName} build! No shopping needed.</div>`;
+    return;
+  }
+
+  const items = missing.map((d, i) => {
+    const priority = d.score >= 20 ? 'high' : d.score >= 10 ? 'mid' : 'low';
+    return `<div class="shop-item">
+      <div>
+        <strong>${cleanName(d.card.name_en)}</strong>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:6px">${d.card.card_id} · ${d.card.set_id} · ${d.card.rarity}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="shop-priority priority-${priority}">${priority.toUpperCase()}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--cyan);">${d.score.toFixed(0)}pts</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const highCount = missing.filter(d => d.score >= 20).length;
+  const midCount = missing.filter(d => d.score >= 10 && d.score < 20).length;
+  const lowCount = missing.filter(d => d.score < 10).length;
+
+  // Group by set for buying guidance
+  const bySet = {};
+  missing.forEach(d => {
+    const s = d.card.set_id || 'Other';
+    if (!bySet[s]) bySet[s] = 0;
+    bySet[s]++;
+  });
+  const setList = Object.entries(bySet).sort((a,b) => b[1]-a[1])
+    .map(([s,c]) => `<span class="pill pill-blue">${s}: ${c}</span>`).join(' ');
+
+  out.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <h3 style="color:var(--gold);font-size:14px;margin-bottom:8px;">Shopping List for ${leaderName}</h3>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+        Missing <strong style="color:var(--red)">${missing.length}</strong> of ${deck.length} cards ·
+        <span style="color:var(--red)">${highCount} HIGH</span> ·
+        <span style="color:var(--gold)">${midCount} MID</span> ·
+        <span style="color:var(--blue)">${lowCount} LOW</span> priority
+      </div>
+      <div style="font-size:11px;margin-bottom:12px;">Sets to target: ${setList}</div>
+    </div>
+    ${items}
+  `;
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
