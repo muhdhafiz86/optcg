@@ -3,11 +3,11 @@
 <head><script src="optcg_auth.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OPTCG Deck Analyzer v1.0.0</title>
+<title>OPTCG Deck Analyzer v1.0.1</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════════════
-   OPTCG DECK ANALYZER v1.0.0
+   OPTCG DECK ANALYZER v1.0.1
    Built: 10 Apr 2026 22:00 SGT
    Author: Claude for Hafiz
    ═══════════════════════════════════════════════════════════════════ */
@@ -153,7 +153,7 @@ input, select, textarea { font-family: var(--mono); }
 <div class="app" id="app">
   <div class="header">
     <h1>⚔ OPTCG Deck Analyzer</h1>
-    <div class="ver">v1.0.0 · 10 Apr 2026 22:00 SGT · Rule-Based Engine · 2,622 Cards</div>
+    <div class="ver">v1.0.1 · 10 Apr 2026 22:00 SGT · Rule-Based Engine · 2,622 Cards</div>
   </div>
 
   <div class="tabs" id="tabs">
@@ -218,7 +218,7 @@ input, select, textarea { font-family: var(--mono); }
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   ENGINE: OPTCG Deck Analyzer v1.0.0
+   ENGINE: OPTCG Deck Analyzer v1.0.1
    Rule-based scoring + auto deck construction
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -240,7 +240,7 @@ async function init() {
     // Fallback: prompt file upload
     document.getElementById('app').innerHTML = `
       <div class="header"><h1>⚔ OPTCG Deck Analyzer</h1>
-      <div class="ver">v1.0.0 · Load your card database to begin</div></div>
+      <div class="ver">v1.0.1 · Load your card database to begin</div></div>
       <div style="text-align:center;padding:40px;">
         <p style="margin-bottom:16px;color:var(--text-dim);">Could not auto-load optcg_cards_merged.json. Please select it manually:</p>
         <input type="file" accept=".json" onchange="loadJsonFile(event)" style="color:var(--text);">
@@ -271,10 +271,32 @@ function afterLoad() {
   LEADERS = ALL_CARDS.filter(c => c.card_type === 'LEADER');
   PLAYABLE = ALL_CARDS.filter(c => ['CHARACTER','EVENT','STAGE'].includes(c.card_type));
 
-  // Load saved collection
+  // Load saved collection — merge both old format and scanner v2 format
   try {
+    // Old format: optcg_collection = {card_id: qty}
     const saved = localStorage.getItem('optcg_collection');
     if (saved) OWNED = JSON.parse(saved);
+    
+    // Scanner v2 format: optcg_collection_v2 = {"card_id|lang|variant": qty}
+    const saved2 = localStorage.getItem('optcg_collection_v2');
+    if (saved2) {
+      const scannerCol = JSON.parse(saved2);
+      for (const key in scannerCol) {
+        const cardId = key.split('|')[0]; // Extract card_id from "OP01-001|en|regular"
+        OWNED[cardId] = Math.max(OWNED[cardId] || 0, (OWNED[cardId] || 0) > 0 ? OWNED[cardId] : scannerCol[key]);
+        // Aggregate: sum all variants/languages for this card_id
+      }
+      // Re-aggregate properly: count total per card_id across all variants
+      const aggr = {};
+      for (const key in scannerCol) {
+        const cardId = key.split('|')[0];
+        aggr[cardId] = (aggr[cardId] || 0) + scannerCol[key];
+      }
+      // Merge: use the max of old format vs scanner aggregate
+      for (const cid in aggr) {
+        OWNED[cid] = Math.max(OWNED[cid] || 0, aggr[cid]);
+      }
+    }
   } catch(e) {}
 
   populateLeaderSelect();
@@ -285,6 +307,29 @@ function afterLoad() {
 
 function saveCollection() {
   try { localStorage.setItem('optcg_collection', JSON.stringify(OWNED)); } catch(e) {}
+  // Also sync to scanner v2 format: update quantities for existing entries
+  try {
+    const saved2 = localStorage.getItem('optcg_collection_v2');
+    const scannerCol = saved2 ? JSON.parse(saved2) : {};
+    // For cards changed in analyzer but not in scanner, add as "en|regular"
+    for (const cid in OWNED) {
+      // Check if scanner already has entries for this card
+      let scannerTotal = 0;
+      let hasEntry = false;
+      for (const key in scannerCol) {
+        if (key.split('|')[0] === cid) { scannerTotal += scannerCol[key]; hasEntry = true; }
+      }
+      if (!hasEntry && OWNED[cid] > 0) {
+        scannerCol[cid + '|en|regular'] = OWNED[cid];
+      }
+    }
+    // Remove scanner entries for cards with 0 qty in analyzer
+    for (const key in scannerCol) {
+      const cid = key.split('|')[0];
+      if (OWNED[cid] === 0 || OWNED[cid] === undefined) delete scannerCol[key];
+    }
+    localStorage.setItem('optcg_collection_v2', JSON.stringify(scannerCol));
+  } catch(e) {}
 }
 
 // ── Tab Navigation ──────────────────────────────────────────────────
@@ -766,9 +811,10 @@ function renderCollection() {
   }
   const allItems = [...leaders, ...filtered];
 
-  const ownedTotal = Object.keys(OWNED).length;
+  const ownedTotal = Object.keys(OWNED).filter(k=>OWNED[k]>0).length;
   const ownedQty = Object.values(OWNED).reduce((a,b)=>a+b, 0);
-  document.getElementById('coll-stats').textContent = `${ownedTotal} unique cards owned (${ownedQty} total qty) · Showing ${Math.min(allItems.length, COLL_PAGE_SIZE)} of ${allItems.length}`;
+  const hasScannerData = !!localStorage.getItem('optcg_collection_v2');
+  document.getElementById('coll-stats').textContent = `${ownedTotal} unique cards owned (${ownedQty} total qty)${hasScannerData?' · 📷 Synced from Scanner':''} · Showing ${Math.min(allItems.length, COLL_PAGE_SIZE)} of ${allItems.length}`;
 
   const page = allItems.slice(0, COLL_PAGE_SIZE);
   const grid = document.getElementById('coll-grid');
