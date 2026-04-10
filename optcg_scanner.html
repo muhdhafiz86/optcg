@@ -10,12 +10,24 @@
 <title>OPTCG Card Scanner</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
-:root{--bg:#0a0e14;--s1:#111820;--s2:#1a2233;--s3:#222d40;--bdr:#2a3548;--txt:#e0e6f0;--dim:#7888a0;--acc:#d4a017;--red:#e74c3c;--grn:#27ae60}
+:root{--bg:#0a0e14;--s1:#111820;--s2:#1a2233;--s3:#222d40;--bdr:#2a3548;--txt:#e0e6f0;--dim:#7888a0;--acc:#d4a017;--red:#e74c3c;--grn:#27ae60;--blu:#2980b9}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+/* Password overlay */
+.pw-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.pw-box{text-align:center;padding:40px}
+.pw-box h2{color:var(--acc);font-size:20px;margin-bottom:16px}
+.pw-box input{padding:12px 20px;background:var(--s2);border:2px solid var(--bdr);border-radius:10px;color:var(--txt);font-size:16px;text-align:center;outline:none;width:200px}
+.pw-box input:focus{border-color:var(--acc)}
+.pw-box .err{color:var(--red);font-size:12px;margin-top:8px;min-height:20px}
+.pw-box p{color:var(--dim);font-size:12px;margin-top:12px}
+/* Main UI */
 .header{padding:12px 16px;background:var(--s1);border-bottom:2px solid var(--acc);display:flex;justify-content:space-between;align-items:center}
 .header h1{font-size:16px;color:var(--acc)}
 .header .count{font-size:12px;color:var(--dim)}
+.lang-bar{display:flex;justify-content:center;gap:4px;padding:6px;background:var(--s1)}
+.lang-btn{padding:5px 16px;border-radius:14px;font-size:11px;font-weight:700;border:1px solid var(--bdr);background:var(--s2);color:var(--dim);cursor:pointer}
+.lang-btn.active{background:var(--acc);color:#000;border-color:var(--acc)}
 .nav{display:flex;background:var(--s1);border-bottom:1px solid var(--bdr)}
 .nav a{flex:1;padding:10px;text-align:center;font-size:12px;color:var(--dim);text-decoration:none;font-weight:600}
 .nav a.active{color:var(--acc);border-bottom:2px solid var(--acc)}
@@ -27,32 +39,34 @@ canvas{display:none}
 .scan-overlay::after{content:'Point at card ID';position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);color:var(--acc);font-size:11px;white-space:nowrap;font-weight:600}
 .scan-line{position:absolute;top:0;left:0;width:100%;height:2px;background:var(--acc);animation:scan 2s ease-in-out infinite}
 @keyframes scan{0%,100%{top:0}50%{top:calc(100% - 2px)}}
-.controls{padding:12px;display:flex;gap:8px;justify-content:center}
+.controls{padding:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s}
 .btn:active{transform:scale(0.95)}
 .btn-p{background:var(--acc);color:#000}
 .btn-s{background:var(--s2);color:var(--txt);border:1px solid var(--bdr)}
 .btn-d{background:var(--red);color:#fff}
+.btn-g{background:var(--grn);color:#fff}
 .status{padding:12px;text-align:center;font-size:13px;color:var(--dim);min-height:40px}
 .status.success{color:var(--grn)}.status.error{color:var(--red)}.status.scanning{color:var(--acc)}
+/* Variant picker */
+.variant-picker{margin:8px 16px;padding:12px;background:var(--s2);border-radius:10px}
+.variant-picker h4{font-size:13px;color:var(--acc);margin-bottom:8px}
+.variant-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.var-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--bdr);background:var(--s3);color:var(--dim);cursor:pointer}
+.var-btn.active{background:var(--acc);color:#000;border-color:var(--acc)}
 .result-card{margin:8px 16px;padding:12px;background:var(--s2);border-radius:10px;display:flex;gap:12px;align-items:center}
 .result-card img{width:60px;height:84px;object-fit:cover;border-radius:6px;background:var(--s3)}
 .result-card .info{flex:1}
 .result-card .info h3{font-size:14px;color:var(--acc)}
 .result-card .info p{font-size:11px;color:var(--dim);margin-top:2px}
-.result-card .add-btn{padding:8px 14px;background:var(--grn);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer}
-.result-card .add-btn.added{background:var(--s3);color:var(--dim)}
 .collection{padding:12px}
 .col-card{display:flex;align-items:center;gap:10px;padding:8px;background:var(--s2);border-radius:8px;margin-bottom:6px}
 .col-card img{width:40px;height:56px;object-fit:cover;border-radius:4px;background:var(--s3)}
-.col-card .info{flex:1}
-.col-card .info .nm{font-size:13px;font-weight:600}
-.col-card .info .mt{font-size:10px;color:var(--dim)}
+.col-card .info{flex:1}.col-card .info .nm{font-size:13px;font-weight:600}.col-card .info .mt{font-size:10px;color:var(--dim)}
 .col-card .qty{display:flex;align-items:center;gap:6px}
 .col-card .qty button{width:26px;height:26px;border-radius:50%;border:1px solid var(--bdr);background:var(--s3);color:var(--txt);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .col-card .qty span{font-weight:700;min-width:14px;text-align:center;font-size:13px}
-.empty{text-align:center;padding:40px;color:var(--dim)}
-.empty .ico{font-size:40px;margin-bottom:8px}
+.empty{text-align:center;padding:40px;color:var(--dim)}.empty .ico{font-size:40px;margin-bottom:8px}
 .col-stats{padding:12px 16px;background:var(--s1);display:flex;justify-content:space-around;font-size:12px;color:var(--dim)}
 .col-stats strong{color:var(--acc)}
 .search-row{padding:8px 12px}
@@ -61,19 +75,40 @@ canvas{display:none}
 .manual-input{padding:12px;display:flex;gap:8px}
 .manual-input input{flex:1;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:14px;outline:none;text-transform:uppercase}
 .manual-input input:focus{border-color:var(--acc)}
-.export-btns{padding:8px 12px;display:flex;gap:8px}
+.export-btns{padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap}
 .export-btns .btn{flex:1;font-size:11px;padding:8px}
+.lang-tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px}
+.lang-tag.en{background:var(--blu);color:#fff}
+.lang-tag.jp{background:var(--red);color:#fff}
+.var-tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px;background:var(--grn);color:#fff}
 </style>
 </head>
 <body>
+
+<!-- PASSWORD GATE -->
+<div class="pw-overlay" id="pwGate">
+<div class="pw-box">
+<h2>&#x1F3F4;&#x200D;&#x2620;&#xFE0F; OPTCG Scanner</h2>
+<input type="password" id="pwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')checkPW()">
+<div class="err" id="pwErr"></div>
+<p>Enter password to access</p>
+</div>
+</div>
+
+<!-- MAIN APP (hidden until password) -->
+<div id="mainApp" style="display:none">
 <div class="header">
 <h1>&#x1F4F7; OPTCG Scanner</h1>
 <div class="count" id="colCount">0 cards</div>
 </div>
+<div class="lang-bar">
+<button class="lang-btn active" id="lang-en" onclick="setLang('en')">&#x1F1EC;&#x1F1E7; EN</button>
+<button class="lang-btn" id="lang-jp" onclick="setLang('jp')">&#x1F1EF;&#x1F1F5; JP</button>
+</div>
 <div class="nav">
-<a href="#" class="active" onclick="showTab('scan',this)">&#x1F4F7; Scan</a>
-<a href="#" onclick="showTab('manual',this)">&#x2328;&#xFE0F; Manual</a>
-<a href="#" onclick="showTab('collection',this)">&#x1F4E6; Collection</a>
+<a href="#" class="active" onclick="showTab('scan',this);return false">&#x1F4F7; Scan</a>
+<a href="#" onclick="showTab('manual',this);return false">&#x2328;&#xFE0F; Manual</a>
+<a href="#" onclick="showTab('collection',this);return false">&#x1F4E6; Collection</a>
 </div>
 
 <!-- SCAN TAB -->
@@ -89,6 +124,7 @@ canvas{display:none}
 </div>
 <div class="status" id="status">Start camera and point at a card ID</div>
 <div id="scanResult"></div>
+<div id="scanVariant"></div>
 </div>
 
 <!-- MANUAL TAB -->
@@ -102,6 +138,7 @@ Type card ID (e.g., OP01-001) and press Add
 </div>
 <div class="status" id="manualStatus"></div>
 <div id="manualResult"></div>
+<div id="manualVariant"></div>
 </div>
 
 <!-- COLLECTION TAB -->
@@ -109,10 +146,11 @@ Type card ID (e.g., OP01-001) and press Add
 <div class="col-stats" id="colStats">
 <span>Unique: <strong id="csUnique">0</strong></span>
 <span>Total: <strong id="csTotal">0</strong></span>
-<span>Sets: <strong id="csSets">0</strong></span>
+<span>EN: <strong id="csEN">0</strong></span>
+<span>JP: <strong id="csJP">0</strong></span>
 </div>
 <div class="export-btns">
-<button class="btn btn-s" onclick="exportCollection()">&#x1F4BE; Export CSV</button>
+<button class="btn btn-s" onclick="exportCollection()">&#x1F4BE; Export</button>
 <button class="btn btn-s" onclick="importCollection()">&#x1F4C2; Import</button>
 <button class="btn btn-d" onclick="clearCollection()">&#x1F5D1; Clear</button>
 <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImport(this)">
@@ -121,29 +159,89 @@ Type card ID (e.g., OP01-001) and press Add
 <input type="text" id="colSearch" placeholder="Search collection..." oninput="renderCollection()">
 </div>
 <div class="collection" id="colList">
-<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.<br>Use the Scan or Manual tab to add cards.</p></div>
+<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.</p></div>
+</div>
 </div>
 </div>
 
 <script>
+// ── Password ──
+var PW_HASH='1fbf355b58eb7649b1a0cbd5d3b3c576b284c79c480a251200ec398ca4ca87be';
+
+function checkPW(){
+  var pw=document.getElementById('pwInput').value;
+  crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw)).then(function(buf){
+    var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+    if(hash===PW_HASH){
+      document.getElementById('pwGate').style.display='none';
+      document.getElementById('mainApp').style.display='block';
+      try{sessionStorage.setItem('optcg_auth','1')}catch(e){}
+      startCamera();
+    }else{
+      document.getElementById('pwErr').textContent='Wrong password';
+      document.getElementById('pwInput').value='';
+    }
+  });
+}
+// Skip password if already authenticated this session
+try{if(sessionStorage.getItem('optcg_auth')==='1'){
+  document.getElementById('pwGate').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+}}catch(e){}
+
+// ── Globals ──
 var CARDS=[];
-var COL={};  // card_id -> quantity
+// Collection: key = "cardId|lang|variant", value = quantity
+// e.g., "OP01-001|en|regular": 2, "OP01-001|jp|alt_art": 1
+var COL={};
+var LANG='en';
 var facingMode='environment';
 var stream=null;
 var scanning=false;
 var worker=null;
+var lastScannedId=null;
 
-// Load card database
+var VARIANTS=[
+  {id:'regular',label:'Regular'},
+  {id:'alt_art',label:'Alt Art (AA)'},
+  {id:'sp',label:'SP Art'},
+  {id:'manga_rare',label:'Manga Rare'},
+  {id:'sec',label:'SEC'},
+  {id:'don',label:'DON!!'}
+];
+
+function imgUrl(cardId){
+  var base=LANG==='jp'
+    ?'https://www.onepiece-cardgame.com/images/cardlist/card/'
+    :'https://en.onepiece-cardgame.com/images/cardlist/card/';
+  return 'https://images.weserv.nl/?url='+encodeURIComponent(base+cardId+'.png')+'&w=120&q=80';
+}
+
+function imgUrlSmall(cardId,lang){
+  var base=(lang||LANG)==='jp'
+    ?'https://www.onepiece-cardgame.com/images/cardlist/card/'
+    :'https://en.onepiece-cardgame.com/images/cardlist/card/';
+  return 'https://images.weserv.nl/?url='+encodeURIComponent(base+cardId+'.png')+'&w=80&q=70';
+}
+
+// ── Language ──
+function setLang(lang){
+  LANG=lang;
+  document.getElementById('lang-en').classList.toggle('active',lang==='en');
+  document.getElementById('lang-jp').classList.toggle('active',lang==='jp');
+}
+
+// ── Load DB ──
 fetch('optcg_cards_merged.json').then(function(r){return r.json()}).then(function(data){
   CARDS=data;
-  document.getElementById('status').textContent='Database loaded: '+CARDS.length+' cards. Point camera at card ID.';
+  document.getElementById('status').textContent='Database: '+CARDS.length+' cards. Point camera at card ID.';
   loadCollection();
 }).catch(function(e){
-  document.getElementById('status').textContent='Failed to load card database: '+e;
+  document.getElementById('status').textContent='Failed to load database: '+e;
   document.getElementById('status').className='status error';
 });
 
-// Init Tesseract worker
+// ── Tesseract ──
 function initWorker(){
   if(worker)return Promise.resolve(worker);
   document.getElementById('status').textContent='Loading OCR engine...';
@@ -151,13 +249,10 @@ function initWorker(){
   return Tesseract.createWorker('eng',1,{
     workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
     corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
-  }).then(function(w){
-    worker=w;
-    return w;
-  });
+  }).then(function(w){worker=w;return w;});
 }
 
-// Camera
+// ── Camera ──
 function startCamera(){
   if(stream){stream.getTracks().forEach(function(t){t.stop()});}
   navigator.mediaDevices.getUserMedia({
@@ -166,201 +261,195 @@ function startCamera(){
     stream=s;
     document.getElementById('vid').srcObject=s;
   }).catch(function(e){
-    document.getElementById('status').textContent='Camera error: '+e.message;
+    document.getElementById('status').textContent='Camera: '+e.message;
     document.getElementById('status').className='status error';
   });
 }
+function toggleCamera(){facingMode=facingMode==='environment'?'user':'environment';startCamera();}
 
-function toggleCamera(){
-  facingMode=facingMode==='environment'?'user':'environment';
-  startCamera();
-}
-
-// Scan
+// ── Scan ──
 function doScan(){
   if(scanning)return;
   scanning=true;
   var btn=document.getElementById('scanBtn');
   btn.textContent='Scanning...';btn.disabled=true;
-  document.getElementById('status').textContent='Analyzing image...';
+  document.getElementById('status').textContent='Analyzing...';
   document.getElementById('status').className='status scanning';
+  document.getElementById('scanVariant').innerHTML='';
 
   var vid=document.getElementById('vid');
   var cvs=document.getElementById('cvs');
   var ctx=cvs.getContext('2d');
-
-  cvs.width=vid.videoWidth;
-  cvs.height=vid.videoHeight;
+  cvs.width=vid.videoWidth;cvs.height=vid.videoHeight;
   ctx.drawImage(vid,0,0);
 
-  // Crop to the scan area (center 70% width, center 20% height)
-  var cropX=cvs.width*0.15;
-  var cropY=cvs.height*0.4;
-  var cropW=cvs.width*0.7;
-  var cropH=cvs.height*0.2;
+  var cropX=cvs.width*0.15,cropY=cvs.height*0.4,cropW=cvs.width*0.7,cropH=cvs.height*0.2;
+  var cc=document.createElement('canvas');cc.width=cropW;cc.height=cropH;
+  var cctx=cc.getContext('2d');
+  cctx.drawImage(cvs,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
+  var imgData=cctx.getImageData(0,0,cropW,cropH);var d=imgData.data;
+  for(var i=0;i<d.length;i+=4){var avg=(d[i]+d[i+1]+d[i+2])/3;var v=avg>128?255:0;d[i]=v;d[i+1]=v;d[i+2]=v;}
+  cctx.putImageData(imgData,0,0);
 
-  var cropCvs=document.createElement('canvas');
-  cropCvs.width=cropW;cropCvs.height=cropH;
-  var cropCtx=cropCvs.getContext('2d');
-  cropCtx.drawImage(cvs,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
-
-  // Increase contrast for OCR
-  var imgData=cropCtx.getImageData(0,0,cropW,cropH);
-  var d=imgData.data;
-  for(var i=0;i<d.length;i+=4){
-    var avg=(d[i]+d[i+1]+d[i+2])/3;
-    var v=avg>128?255:0;
-    d[i]=v;d[i+1]=v;d[i+2]=v;
-  }
-  cropCtx.putImageData(imgData,0,0);
-
-  initWorker().then(function(w){
-    return w.recognize(cropCvs.toDataURL());
-  }).then(function(result){
-    var text=result.data.text;
-    processOCRResult(text);
+  initWorker().then(function(w){return w.recognize(cc.toDataURL());}).then(function(result){
+    processOCR(result.data.text,'scanResult','status','scanVariant');
   }).catch(function(e){
     document.getElementById('status').textContent='OCR error: '+e;
     document.getElementById('status').className='status error';
   }).finally(function(){
-    scanning=false;
-    btn.textContent='\u{1F50D} Scan Card';btn.disabled=false;
+    scanning=false;btn.textContent='\u{1F50D} Scan Card';btn.disabled=false;
   });
 }
 
-function processOCRResult(text){
-  // Try to find card ID pattern: XX00-000 format
+function processOCR(text,resultDiv,statusDiv,variantDiv){
   var patterns=[
-    /([A-Z]{2,3}\d{2,3}[-—]\d{2,3})/gi,
-    /([OSEPp][TPBRb]\d{2}[-—]\d{3})/gi,
-    /(OP\d{2}[-—]\d{3})/gi,
-    /(ST\d{2}[-—]\d{3})/gi,
-    /(EB\d{2}[-—]\d{3})/gi,
-    /(PRB\d{2}[-—]\d{3})/gi,
+    /([A-Z]{2,3}\d{2,3}[-\u2014]\d{2,3})/gi,
+    /(OP\d{2}[-\u2014]\d{3})/gi,
+    /(ST\d{2}[-\u2014]\d{3})/gi,
+    /(EB\d{2}[-\u2014]\d{3})/gi,
+    /(PRB\d{2}[-\u2014]\d{3})/gi,
   ];
-
   var found=null;
   for(var p=0;p<patterns.length;p++){
     var m=text.match(patterns[p]);
-    if(m){
-      found=m[0].replace('—','-').toUpperCase();
-      break;
-    }
+    if(m){found=m[0].replace('\u2014','-').toUpperCase();break;}
   }
-
   if(!found){
-    // Try fuzzy: clean text and search
     var clean=text.replace(/[^A-Za-z0-9\-]/g,' ').trim();
-    document.getElementById('status').textContent='No card ID found. OCR read: "'+clean.substring(0,60)+'"';
-    document.getElementById('status').className='status error';
-    document.getElementById('scanResult').innerHTML='';
-    return;
-  }
-
-  lookupAndShow(found,'scanResult','status');
-}
-
-function lookupAndShow(cardId,resultDiv,statusDiv){
-  // Clean up common OCR mistakes
-  cardId=cardId.replace(/[oO](?=P\d)/,'O').replace(/l(?=\d)/,'1').replace(/[—–]/g,'-');
-
-  var card=null;
-  for(var i=0;i<CARDS.length;i++){
-    if(CARDS[i].card_id===cardId){card=CARDS[i];break;}
-  }
-
-  // Try without leading zeros
-  if(!card){
-    for(var i=0;i<CARDS.length;i++){
-      if(CARDS[i].card_id&&CARDS[i].card_id.replace(/^0+/,'')=== cardId.replace(/^0+/,'')){
-        card=CARDS[i];break;
-      }
-    }
-  }
-
-  if(!card){
-    document.getElementById(statusDiv).textContent='Card "'+cardId+'" not found in database.';
+    document.getElementById(statusDiv).textContent='No card ID found. Read: "'+clean.substring(0,50)+'"';
     document.getElementById(statusDiv).className='status error';
     document.getElementById(resultDiv).innerHTML='';
+    document.getElementById(variantDiv).innerHTML='';
+    return;
+  }
+  lookupAndShow(found,resultDiv,statusDiv,variantDiv);
+}
+
+function lookupAndShow(cardId,resultDiv,statusDiv,variantDiv){
+  cardId=cardId.replace(/[oO](?=P\d)/,'O').replace(/l(?=\d)/,'1').replace(/[\u2014\u2013]/g,'-');
+  var card=null;
+  for(var i=0;i<CARDS.length;i++){if(CARDS[i].card_id===cardId){card=CARDS[i];break;}}
+  if(!card){
+    for(var i=0;i<CARDS.length;i++){
+      if(CARDS[i].card_id&&CARDS[i].card_id.replace(/^0+/,'')===cardId.replace(/^0+/,'')){card=CARDS[i];break;}
+    }
+  }
+  if(!card){
+    document.getElementById(statusDiv).textContent='"'+cardId+'" not found in database.';
+    document.getElementById(statusDiv).className='status error';
+    document.getElementById(resultDiv).innerHTML='';
+    if(variantDiv)document.getElementById(variantDiv).innerHTML='';
     return;
   }
 
+  lastScannedId=card.card_id;
   var name=card.name_en||card.name_jp||card.card_id;
-  var imgUrl='https://images.weserv.nl/?url='+encodeURIComponent('https://en.onepiece-cardgame.com/images/cardlist/card/'+card.card_id+'.png')+'&w=120&q=80';
-  var inCol=COL[card.card_id]||0;
-
-  document.getElementById(statusDiv).textContent='Found: '+card.card_id+' — '+name;
+  document.getElementById(statusDiv).textContent='Found: '+card.card_id+' \u2014 '+name;
   document.getElementById(statusDiv).className='status success';
 
   var h='<div class="result-card">';
-  h+='<img src="'+imgUrl+'" alt="">';
+  h+='<img src="'+imgUrl(card.card_id)+'" alt="">';
   h+='<div class="info"><h3>'+name+'</h3>';
+  if(card.name_jp&&card.name_en)h+='<p style="color:var(--dim)">'+card.name_jp+'</p>';
   h+='<p>'+card.card_id+' | '+(card.rarity||'?')+' | '+(card.color||'?')+' | '+(card.set_id||'?')+'</p>';
   h+='<p>'+(card.card_type||'')+' | Cost:'+(card.cost||'-')+' Pw:'+(card.power||'-')+'</p>';
-  if(inCol>0)h+='<p style="color:var(--acc)">In collection: x'+inCol+'</p>';
-  h+='</div>';
-  h+='<button class="add-btn" onclick="addToCol(\''+card.card_id+'\')">+ Add</button>';
-  h+='</div>';
+  // Show existing collection count
+  var counts=getCardCounts(card.card_id);
+  if(counts.length>0)h+='<p style="color:var(--acc)">Owned: '+counts.join(', ')+'</p>';
+  h+='</div></div>';
   document.getElementById(resultDiv).innerHTML=h;
+
+  // Show variant picker
+  if(variantDiv){
+    var vh='<div class="variant-picker">';
+    vh+='<h4>Select variant, then tap Add:</h4>';
+    vh+='<div class="variant-row" id="varBtns">';
+    for(var v=0;v<VARIANTS.length;v++){
+      vh+='<button class="var-btn'+(v===0?' active':'')+'" data-var="'+VARIANTS[v].id+'" onclick="pickVar(this)">'+VARIANTS[v].label+'</button>';
+    }
+    vh+='</div>';
+    vh+='<button class="btn btn-g" style="width:100%;margin-top:8px" onclick="addScanned()">&#x2795; Add to Collection</button>';
+    vh+='</div>';
+    document.getElementById(variantDiv).innerHTML=vh;
+  }
+}
+
+function pickVar(el){
+  var btns=el.parentElement.querySelectorAll('.var-btn');
+  for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');
+  el.classList.add('active');
+}
+
+function getSelectedVariant(){
+  var active=document.querySelector('.var-btn.active');
+  return active?active.getAttribute('data-var'):'regular';
+}
+
+function addScanned(){
+  if(!lastScannedId)return;
+  var variant=getSelectedVariant();
+  var key=lastScannedId+'|'+LANG+'|'+variant;
+  COL[key]=(COL[key]||0)+1;
+  saveCollection();
+  // Update status
+  var vLabel='';
+  for(var i=0;i<VARIANTS.length;i++){if(VARIANTS[i].id===variant)vLabel=VARIANTS[i].label;}
+  var tabs=document.querySelectorAll('.tab.active .status');
+  if(tabs.length>0)tabs[0].textContent='Added '+lastScannedId+' ('+LANG.toUpperCase()+', '+vLabel+') x'+COL[key];
 }
 
 function manualAdd(){
   var input=document.getElementById('manualId');
   var id=input.value.trim().toUpperCase();
   if(!id)return;
-  lookupAndShow(id,'manualResult','manualStatus');
-  input.value='';
-  input.focus();
+  lookupAndShow(id,'manualResult','manualStatus','manualVariant');
+  input.value='';input.focus();
 }
 
-// Collection management
-function addToCol(cardId){
-  COL[cardId]=(COL[cardId]||0)+1;
-  saveCollection();
-  updateColCount();
-  // Update result display
-  var statusEl=document.querySelector('.tab.active .status');
-  if(statusEl)statusEl.textContent='Added '+cardId+' (x'+COL[cardId]+' in collection)';
+// ── Collection ──
+function getCardCounts(cardId){
+  var results=[];
+  for(var k in COL){
+    var parts=k.split('|');
+    if(parts[0]===cardId){
+      var vLabel='';
+      for(var i=0;i<VARIANTS.length;i++){if(VARIANTS[i].id===parts[2])vLabel=VARIANTS[i].label;}
+      results.push(parts[1].toUpperCase()+' '+vLabel+' x'+COL[k]);
+    }
+  }
+  return results;
 }
 
-function removeFromCol(cardId){
-  if(COL[cardId])COL[cardId]--;
-  if(COL[cardId]<=0)delete COL[cardId];
-  saveCollection();
-  renderCollection();
-}
-
-function addOneCol(cardId){
-  COL[cardId]=(COL[cardId]||0)+1;
-  saveCollection();
-  renderCollection();
-}
-
-function saveCollection(){
-  try{localStorage.setItem('optcg_collection',JSON.stringify(COL));}catch(e){}
-  updateColCount();
-}
-
+function saveCollection(){try{localStorage.setItem('optcg_collection_v2',JSON.stringify(COL))}catch(e){}updateColCount();}
 function loadCollection(){
   try{
-    var saved=localStorage.getItem('optcg_collection');
-    if(saved)COL=JSON.parse(saved);
+    var s=localStorage.getItem('optcg_collection_v2');
+    if(s)COL=JSON.parse(s);
+    // Migrate v1 if exists
+    var v1=localStorage.getItem('optcg_collection');
+    if(v1&&!s){
+      var old=JSON.parse(v1);
+      for(var k in old)COL[k+'|en|regular']=(COL[k+'|en|regular']||0)+old[k];
+      saveCollection();
+    }
   }catch(e){}
   updateColCount();
 }
 
 function updateColCount(){
-  var unique=Object.keys(COL).length;
-  var total=0;for(var k in COL)total+=COL[k];
-  var sets={};for(var k in COL){
-    for(var i=0;i<CARDS.length;i++){
-      if(CARDS[i].card_id===k){sets[CARDS[i].set_id||'?']=1;break;}
-    }
+  var unique={},total=0,enCount=0,jpCount=0;
+  for(var k in COL){
+    var parts=k.split('|');
+    unique[parts[0]]=1;
+    total+=COL[k];
+    if(parts[1]==='en')enCount+=COL[k];
+    if(parts[1]==='jp')jpCount+=COL[k];
   }
-  document.getElementById('colCount').textContent=unique+' unique, '+total+' total';
-  document.getElementById('csUnique').textContent=unique;
+  document.getElementById('colCount').textContent=Object.keys(unique).length+' unique, '+total+' total';
+  document.getElementById('csUnique').textContent=Object.keys(unique).length;
   document.getElementById('csTotal').textContent=total;
-  document.getElementById('csSets').textContent=Object.keys(sets).length;
+  document.getElementById('csEN').textContent=enCount;
+  document.getElementById('csJP').textContent=jpCount;
 }
 
 function renderCollection(){
@@ -368,121 +457,94 @@ function renderCollection(){
   var list=document.getElementById('colList');
   var keys=Object.keys(COL);
   if(keys.length===0){
-    list.innerHTML='<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.</p></div>';
-    return;
+    list.innerHTML='<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.</p></div>';return;
   }
-
-  // Build entries with card data
   var entries=[];
   for(var i=0;i<keys.length;i++){
-    var id=keys[i];var qty=COL[id];
+    var k=keys[i];var parts=k.split('|');
+    var cardId=parts[0],lang=parts[1],variant=parts[2];
     var card=null;
-    for(var j=0;j<CARDS.length;j++){
-      if(CARDS[j].card_id===id){card=CARDS[j];break;}
-    }
-    if(!card)card={card_id:id,name_en:id,rarity:'?',color:'?',set_id:'?',cost:'',power:'',card_type:''};
-    var name=(card.name_en||card.name_jp||id).toLowerCase();
-    if(q&&name.indexOf(q)===-1&&id.toLowerCase().indexOf(q)===-1)continue;
-    entries.push({card:card,qty:qty});
+    for(var j=0;j<CARDS.length;j++){if(CARDS[j].card_id===cardId){card=CARDS[j];break;}}
+    if(!card)card={card_id:cardId,name_en:cardId,rarity:'?',color:'?',set_id:'?'};
+    var name=(card.name_en||card.name_jp||cardId).toLowerCase();
+    if(q&&name.indexOf(q)===-1&&cardId.toLowerCase().indexOf(q)===-1)continue;
+    entries.push({key:k,card:card,lang:lang,variant:variant,qty:COL[k]});
   }
-  entries.sort(function(a,b){return a.card.card_id<b.card.card_id?-1:1;});
+  entries.sort(function(a,b){return a.card.card_id<b.card.card_id?-1:a.card.card_id>b.card.card_id?1:a.key<b.key?-1:1;});
 
   var h='';
   for(var i=0;i<entries.length;i++){
     var e=entries[i];var c=e.card;
-    var imgUrl='https://images.weserv.nl/?url='+encodeURIComponent('https://en.onepiece-cardgame.com/images/cardlist/card/'+c.card_id+'.png')+'&w=80&q=70';
+    var vLabel='';for(var v=0;v<VARIANTS.length;v++){if(VARIANTS[v].id===e.variant)vLabel=VARIANTS[v].label;}
     h+='<div class="col-card">';
-    h+='<img src="'+imgUrl+'" alt="">';
-    h+='<div class="info"><div class="nm">'+(c.name_en||c.name_jp||c.card_id)+'</div>';
+    h+='<img src="'+imgUrlSmall(c.card_id,e.lang)+'" alt="">';
+    h+='<div class="info"><div class="nm">'+(c.name_en||c.name_jp||c.card_id);
+    h+='<span class="lang-tag '+e.lang+'">'+e.lang.toUpperCase()+'</span>';
+    if(e.variant!=='regular')h+='<span class="var-tag">'+vLabel+'</span>';
+    h+='</div>';
     h+='<div class="mt">'+c.card_id+' | '+(c.rarity||'?')+' | '+(c.color||'?')+' | '+(c.set_id||'?')+'</div></div>';
-    h+='<div class="qty"><button onclick="removeFromCol(\''+c.card_id+'\')">&#x2212;</button>';
+    h+='<div class="qty"><button onclick="removeOne(\''+e.key+'\')">&#x2212;</button>';
     h+='<span>'+e.qty+'</span>';
-    h+='<button onclick="addOneCol(\''+c.card_id+'\')">+</button></div></div>';
+    h+='<button onclick="addOne(\''+e.key+'\')">+</button></div></div>';
   }
   list.innerHTML=h;
   updateColCount();
 }
 
-function clearCollection(){
-  if(confirm('Clear entire collection?')){
-    COL={};saveCollection();renderCollection();
-  }
-}
+function removeOne(key){if(COL[key])COL[key]--;if(COL[key]<=0)delete COL[key];saveCollection();renderCollection();}
+function addOne(key){COL[key]=(COL[key]||0)+1;saveCollection();renderCollection();}
+function clearCollection(){if(confirm('Clear entire collection?')){COL={};saveCollection();renderCollection();}}
 
 function exportCollection(){
-  var lines=['card_id,name,rarity,color,set,quantity'];
+  var lines=['card_id,name,language,variant,rarity,color,set,quantity'];
   var keys=Object.keys(COL).sort();
   for(var i=0;i<keys.length;i++){
-    var id=keys[i];var qty=COL[id];
-    var card=null;
-    for(var j=0;j<CARDS.length;j++){
-      if(CARDS[j].card_id===id){card=CARDS[j];break;}
-    }
-    var name=card?(card.name_en||card.name_jp||id):id;
-    var rarity=card?card.rarity:'';
-    var color=card?card.color:'';
-    var set=card?card.set_id:'';
-    lines.push('"'+id+'","'+name.replace(/"/g,'""')+'","'+rarity+'","'+color+'","'+set+'",'+qty);
+    var k=keys[i];var parts=k.split('|');
+    var cardId=parts[0],lang=parts[1],variant=parts[2],qty=COL[k];
+    var card=null;for(var j=0;j<CARDS.length;j++){if(CARDS[j].card_id===cardId){card=CARDS[j];break;}}
+    var name=card?(card.name_en||card.name_jp||cardId):cardId;
+    lines.push('"'+cardId+'","'+name.replace(/"/g,'""')+'","'+lang+'","'+variant+'","'+(card?card.rarity:'')+'","'+(card?card.color:'')+'","'+(card?card.set_id:'')+'",'+qty);
   }
   var blob=new Blob([lines.join('\n')],{type:'text/csv'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='optcg_collection.csv';
-  a.click();
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='optcg_collection.csv';a.click();
 }
-
-function importCollection(){
-  document.getElementById('importFile').click();
-}
-
+function importCollection(){document.getElementById('importFile').click();}
 function handleImport(input){
-  var file=input.files[0];
-  if(!file)return;
+  var file=input.files[0];if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){
     var text=e.target.result;
     if(file.name.endsWith('.json')){
-      try{
-        var data=JSON.parse(text);
-        if(typeof data==='object'){
-          for(var k in data){COL[k]=(COL[k]||0)+(parseInt(data[k])||1);}
-          saveCollection();renderCollection();
-          alert('Imported '+Object.keys(data).length+' cards');
-        }
-      }catch(err){alert('Invalid JSON');}
+      try{var data=JSON.parse(text);for(var k in data)COL[k]=(COL[k]||0)+(parseInt(data[k])||1);saveCollection();renderCollection();alert('Imported');}catch(err){alert('Invalid JSON');}
     }else{
-      // CSV
-      var lines=text.split('\n');
-      var count=0;
+      var lines=text.split('\n');var count=0;
       for(var i=1;i<lines.length;i++){
         var parts=lines[i].split(',');
-        if(parts.length>=2){
+        if(parts.length>=4){
           var id=parts[0].replace(/"/g,'').trim();
+          var lang=parts[2]?parts[2].replace(/"/g,'').trim():'en';
+          var variant=parts[3]?parts[3].replace(/"/g,'').trim():'regular';
           var qty=parseInt(parts[parts.length-1])||1;
-          if(id){COL[id]=(COL[id]||0)+qty;count++;}
+          if(id){var key=id+'|'+lang+'|'+variant;COL[key]=(COL[key]||0)+qty;count++;}
         }
       }
-      saveCollection();renderCollection();
-      alert('Imported '+count+' entries');
+      saveCollection();renderCollection();alert('Imported '+count+' entries');
     }
   };
-  reader.readAsText(file);
-  input.value='';
+  reader.readAsText(file);input.value='';
 }
 
 function showTab(name,el){
-  var tabs=document.querySelectorAll('.tab');
-  for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');
+  var tabs=document.querySelectorAll('.tab');for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');
   document.getElementById('tab-'+name).classList.add('active');
-  var links=document.querySelectorAll('.nav a');
-  for(var i=0;i<links.length;i++)links[i].classList.remove('active');
+  var links=document.querySelectorAll('.nav a');for(var i=0;i<links.length;i++)links[i].classList.remove('active');
   if(el)el.classList.add('active');
   if(name==='collection')renderCollection();
   if(name==='scan')startCamera();
 }
 
-// Start camera on load
-startCamera();
+// Start camera if already authenticated
+try{if(sessionStorage.getItem('optcg_auth')==='1')startCamera();}catch(e){}
 </script>
 </body>
 </html>
