@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="optcg_auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OPTCG">
+<meta name="theme-color" content="#0a0e14">
+<title>OPTCG Hub</title>
+<style>
+:root{--bg:#0a0e14;--s1:#111820;--s2:#1a2233;--bdr:#2a3548;--txt:#e0e6f0;--dim:#7888a0;--acc:#d4a017;--red:#e74c3c;--grn:#27ae60;--blu:#2980b9}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.logo{font-size:64px;margin-bottom:8px}
+h1{font-size:28px;font-weight:800;color:var(--acc);letter-spacing:-1px;margin-bottom:4px}
+.sub{font-size:13px;color:var(--dim);margin-bottom:32px}
+.cards{display:flex;flex-direction:column;gap:12px;width:100%;max-width:360px}
+a.card{display:flex;align-items:center;gap:16px;padding:18px 20px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;text-decoration:none;color:var(--txt);transition:all .2s}
+a.card:active{transform:scale(0.97)}
+a.card:hover{border-color:var(--acc);background:var(--s2)}
+.card .icon{font-size:32px;flex-shrink:0}
+.card .info h2{font-size:16px;font-weight:700;margin-bottom:2px}
+.card .info p{font-size:12px;color:var(--dim)}
+.card .arrow{margin-left:auto;font-size:18px;color:var(--dim)}
+.footer{margin-top:40px;font-size:11px;color:var(--dim);text-align:center}
+.footer a{color:var(--acc);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="logo">&#x1F3F4;&#x200D;&#x2620;&#xFE0F;</div>
+<h1>OPTCG Hub</h1>
+<div class="sub">Your One Piece Card Game Toolkit</div>
+<div class="cards">
+<a class="card" href="optcg_online.html">
+<div class="icon">&#x1F50D;</div>
+<div class="info"><h2>Card Browser</h2><p>Browse 2,622 cards · EN/JP images · Search & filter</p></div>
+<div class="arrow">&#x203A;</div>
+</a>
+<a class="card" href="optcg_scanner.html">
+<div class="icon">&#x1F4F7;</div>
+<div class="info"><h2>Card Scanner</h2><p>Scan cards with camera · Track your collection</p></div>
+<div class="arrow">&#x203A;</div>
+</a>
+<a class="card" href="optcg_deck_analyzer_v1.0.0.html">
+<div class="icon">&#x2694;&#xFE0F;</div>
+<div class="info"><h2>Deck Analyzer</h2><p>Build decks · Synergy scoring · Shopping list</p></div>
+<div class="arrow">&#x203A;</div>
+</a>
+</div>
+<div class="footer">Built by Hafiz &middot; Powered by Claude<br>Data from Bandai OPTCG &middot; <a href="https://en.onepiece-cardgame.com">Official Site</a></div>
+</body>
+</html>
