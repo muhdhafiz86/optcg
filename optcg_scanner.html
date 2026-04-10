@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OPTCG Scan">
+<meta name="theme-color" content="#0a0e14">
+<title>OPTCG Card Scanner</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{--bg:#0a0e14;--s1:#111820;--s2:#1a2233;--s3:#222d40;--bdr:#2a3548;--txt:#e0e6f0;--dim:#7888a0;--acc:#d4a017;--red:#e74c3c;--grn:#27ae60}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+.header{padding:12px 16px;background:var(--s1);border-bottom:2px solid var(--acc);display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:16px;color:var(--acc)}
+.header .count{font-size:12px;color:var(--dim)}
+.nav{display:flex;background:var(--s1);border-bottom:1px solid var(--bdr)}
+.nav a{flex:1;padding:10px;text-align:center;font-size:12px;color:var(--dim);text-decoration:none;font-weight:600}
+.nav a.active{color:var(--acc);border-bottom:2px solid var(--acc)}
+.tab{display:none}.tab.active{display:block}
+.cam-wrap{position:relative;width:100%;max-width:500px;margin:0 auto;background:#000}
+video{width:100%;display:block}
+canvas{display:none}
+.scan-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:20%;border:2px solid var(--acc);border-radius:8px;pointer-events:none}
+.scan-overlay::after{content:'Point at card ID';position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);color:var(--acc);font-size:11px;white-space:nowrap;font-weight:600}
+.scan-line{position:absolute;top:0;left:0;width:100%;height:2px;background:var(--acc);animation:scan 2s ease-in-out infinite}
+@keyframes scan{0%,100%{top:0}50%{top:calc(100% - 2px)}}
+.controls{padding:12px;display:flex;gap:8px;justify-content:center}
+.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s}
+.btn:active{transform:scale(0.95)}
+.btn-p{background:var(--acc);color:#000}
+.btn-s{background:var(--s2);color:var(--txt);border:1px solid var(--bdr)}
+.btn-d{background:var(--red);color:#fff}
+.status{padding:12px;text-align:center;font-size:13px;color:var(--dim);min-height:40px}
+.status.success{color:var(--grn)}.status.error{color:var(--red)}.status.scanning{color:var(--acc)}
+.result-card{margin:8px 16px;padding:12px;background:var(--s2);border-radius:10px;display:flex;gap:12px;align-items:center}
+.result-card img{width:60px;height:84px;object-fit:cover;border-radius:6px;background:var(--s3)}
+.result-card .info{flex:1}
+.result-card .info h3{font-size:14px;color:var(--acc)}
+.result-card .info p{font-size:11px;color:var(--dim);margin-top:2px}
+.result-card .add-btn{padding:8px 14px;background:var(--grn);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer}
+.result-card .add-btn.added{background:var(--s3);color:var(--dim)}
+.collection{padding:12px}
+.col-card{display:flex;align-items:center;gap:10px;padding:8px;background:var(--s2);border-radius:8px;margin-bottom:6px}
+.col-card img{width:40px;height:56px;object-fit:cover;border-radius:4px;background:var(--s3)}
+.col-card .info{flex:1}
+.col-card .info .nm{font-size:13px;font-weight:600}
+.col-card .info .mt{font-size:10px;color:var(--dim)}
+.col-card .qty{display:flex;align-items:center;gap:6px}
+.col-card .qty button{width:26px;height:26px;border-radius:50%;border:1px solid var(--bdr);background:var(--s3);color:var(--txt);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.col-card .qty span{font-weight:700;min-width:14px;text-align:center;font-size:13px}
+.empty{text-align:center;padding:40px;color:var(--dim)}
+.empty .ico{font-size:40px;margin-bottom:8px}
+.col-stats{padding:12px 16px;background:var(--s1);display:flex;justify-content:space-around;font-size:12px;color:var(--dim)}
+.col-stats strong{color:var(--acc)}
+.search-row{padding:8px 12px}
+.search-row input{width:100%;padding:8px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:13px;outline:none}
+.search-row input:focus{border-color:var(--acc)}
+.manual-input{padding:12px;display:flex;gap:8px}
+.manual-input input{flex:1;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:14px;outline:none;text-transform:uppercase}
+.manual-input input:focus{border-color:var(--acc)}
+.export-btns{padding:8px 12px;display:flex;gap:8px}
+.export-btns .btn{flex:1;font-size:11px;padding:8px}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>&#x1F4F7; OPTCG Scanner</h1>
+<div class="count" id="colCount">0 cards</div>
+</div>
+<div class="nav">
+<a href="#" class="active" onclick="showTab('scan',this)">&#x1F4F7; Scan</a>
+<a href="#" onclick="showTab('manual',this)">&#x2328;&#xFE0F; Manual</a>
+<a href="#" onclick="showTab('collection',this)">&#x1F4E6; Collection</a>
+</div>
+
+<!-- SCAN TAB -->
+<div id="tab-scan" class="tab active">
+<div class="cam-wrap">
+<video id="vid" autoplay playsinline></video>
+<canvas id="cvs"></canvas>
+<div class="scan-overlay"><div class="scan-line"></div></div>
+</div>
+<div class="controls">
+<button class="btn btn-p" id="scanBtn" onclick="doScan()">&#x1F50D; Scan Card</button>
+<button class="btn btn-s" onclick="toggleCamera()">&#x1F504; Flip</button>
+</div>
+<div class="status" id="status">Start camera and point at a card ID</div>
+<div id="scanResult"></div>
+</div>
+
+<!-- MANUAL TAB -->
+<div id="tab-manual" class="tab">
+<div style="padding:16px;text-align:center;color:var(--dim);font-size:13px">
+Type card ID (e.g., OP01-001) and press Add
+</div>
+<div class="manual-input">
+<input type="text" id="manualId" placeholder="OP01-001" onkeydown="if(event.key==='Enter')manualAdd()">
+<button class="btn btn-p" onclick="manualAdd()">Add</button>
+</div>
+<div class="status" id="manualStatus"></div>
+<div id="manualResult"></div>
+</div>
+
+<!-- COLLECTION TAB -->
+<div id="tab-collection" class="tab">
+<div class="col-stats" id="colStats">
+<span>Unique: <strong id="csUnique">0</strong></span>
+<span>Total: <strong id="csTotal">0</strong></span>
+<span>Sets: <strong id="csSets">0</strong></span>
+</div>
+<div class="export-btns">
+<button class="btn btn-s" onclick="exportCollection()">&#x1F4BE; Export CSV</button>
+<button class="btn btn-s" onclick="importCollection()">&#x1F4C2; Import</button>
+<button class="btn btn-d" onclick="clearCollection()">&#x1F5D1; Clear</button>
+<input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImport(this)">
+</div>
+<div class="search-row">
+<input type="text" id="colSearch" placeholder="Search collection..." oninput="renderCollection()">
+</div>
+<div class="collection" id="colList">
+<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.<br>Use the Scan or Manual tab to add cards.</p></div>
+</div>
+</div>
+
+<script>
+var CARDS=[];
+var COL={};  // card_id -> quantity
+var facingMode='environment';
+var stream=null;
+var scanning=false;
+var worker=null;
+
+// Load card database
+fetch('optcg_cards_merged.json').then(function(r){return r.json()}).then(function(data){
+  CARDS=data;
+  document.getElementById('status').textContent='Database loaded: '+CARDS.length+' cards. Point camera at card ID.';
+  loadCollection();
+}).catch(function(e){
+  document.getElementById('status').textContent='Failed to load card database: '+e;
+  document.getElementById('status').className='status error';
+});
+
+// Init Tesseract worker
+function initWorker(){
+  if(worker)return Promise.resolve(worker);
+  document.getElementById('status').textContent='Loading OCR engine...';
+  document.getElementById('status').className='status scanning';
+  return Tesseract.createWorker('eng',1,{
+    workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+    corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
+  }).then(function(w){
+    worker=w;
+    return w;
+  });
+}
+
+// Camera
+function startCamera(){
+  if(stream){stream.getTracks().forEach(function(t){t.stop()});}
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:facingMode,width:{ideal:1280},height:{ideal:720}}
+  }).then(function(s){
+    stream=s;
+    document.getElementById('vid').srcObject=s;
+  }).catch(function(e){
+    document.getElementById('status').textContent='Camera error: '+e.message;
+    document.getElementById('status').className='status error';
+  });
+}
+
+function toggleCamera(){
+  facingMode=facingMode==='environment'?'user':'environment';
+  startCamera();
+}
+
+// Scan
+function doScan(){
+  if(scanning)return;
+  scanning=true;
+  var btn=document.getElementById('scanBtn');
+  btn.textContent='Scanning...';btn.disabled=true;
+  document.getElementById('status').textContent='Analyzing image...';
+  document.getElementById('status').className='status scanning';
+
+  var vid=document.getElementById('vid');
+  var cvs=document.getElementById('cvs');
+  var ctx=cvs.getContext('2d');
+
+  cvs.width=vid.videoWidth;
+  cvs.height=vid.videoHeight;
+  ctx.drawImage(vid,0,0);
+
+  // Crop to the scan area (center 70% width, center 20% height)
+  var cropX=cvs.width*0.15;
+  var cropY=cvs.height*0.4;
+  var cropW=cvs.width*0.7;
+  var cropH=cvs.height*0.2;
+
+  var cropCvs=document.createElement('canvas');
+  cropCvs.width=cropW;cropCvs.height=cropH;
+  var cropCtx=cropCvs.getContext('2d');
+  cropCtx.drawImage(cvs,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
+
+  // Increase contrast for OCR
+  var imgData=cropCtx.getImageData(0,0,cropW,cropH);
+  var d=imgData.data;
+  for(var i=0;i<d.length;i+=4){
+    var avg=(d[i]+d[i+1]+d[i+2])/3;
+    var v=avg>128?255:0;
+    d[i]=v;d[i+1]=v;d[i+2]=v;
+  }
+  cropCtx.putImageData(imgData,0,0);
+
+  initWorker().then(function(w){
+    return w.recognize(cropCvs.toDataURL());
+  }).then(function(result){
+    var text=result.data.text;
+    processOCRResult(text);
+  }).catch(function(e){
+    document.getElementById('status').textContent='OCR error: '+e;
+    document.getElementById('status').className='status error';
+  }).finally(function(){
+    scanning=false;
+    btn.textContent='\u{1F50D} Scan Card';btn.disabled=false;
+  });
+}
+
+function processOCRResult(text){
+  // Try to find card ID pattern: XX00-000 format
+  var patterns=[
+    /([A-Z]{2,3}\d{2,3}[-—]\d{2,3})/gi,
+    /([OSEPp][TPBRb]\d{2}[-—]\d{3})/gi,
+    /(OP\d{2}[-—]\d{3})/gi,
+    /(ST\d{2}[-—]\d{3})/gi,
+    /(EB\d{2}[-—]\d{3})/gi,
+    /(PRB\d{2}[-—]\d{3})/gi,
+  ];
+
+  var found=null;
+  for(var p=0;p<patterns.length;p++){
+    var m=text.match(patterns[p]);
+    if(m){
+      found=m[0].replace('—','-').toUpperCase();
+      break;
+    }
+  }
+
+  if(!found){
+    // Try fuzzy: clean text and search
+    var clean=text.replace(/[^A-Za-z0-9\-]/g,' ').trim();
+    document.getElementById('status').textContent='No card ID found. OCR read: "'+clean.substring(0,60)+'"';
+    document.getElementById('status').className='status error';
+    document.getElementById('scanResult').innerHTML='';
+    return;
+  }
+
+  lookupAndShow(found,'scanResult','status');
+}
+
+function lookupAndShow(cardId,resultDiv,statusDiv){
+  // Clean up common OCR mistakes
+  cardId=cardId.replace(/[oO](?=P\d)/,'O').replace(/l(?=\d)/,'1').replace(/[—–]/g,'-');
+
+  var card=null;
+  for(var i=0;i<CARDS.length;i++){
+    if(CARDS[i].card_id===cardId){card=CARDS[i];break;}
+  }
+
+  // Try without leading zeros
+  if(!card){
+    for(var i=0;i<CARDS.length;i++){
+      if(CARDS[i].card_id&&CARDS[i].card_id.replace(/^0+/,'')=== cardId.replace(/^0+/,'')){
+        card=CARDS[i];break;
+      }
+    }
+  }
+
+  if(!card){
+    document.getElementById(statusDiv).textContent='Card "'+cardId+'" not found in database.';
+    document.getElementById(statusDiv).className='status error';
+    document.getElementById(resultDiv).innerHTML='';
+    return;
+  }
+
+  var name=card.name_en||card.name_jp||card.card_id;
+  var imgUrl='https://images.weserv.nl/?url='+encodeURIComponent('https://en.onepiece-cardgame.com/images/cardlist/card/'+card.card_id+'.png')+'&w=120&q=80';
+  var inCol=COL[card.card_id]||0;
+
+  document.getElementById(statusDiv).textContent='Found: '+card.card_id+' — '+name;
+  document.getElementById(statusDiv).className='status success';
+
+  var h='<div class="result-card">';
+  h+='<img src="'+imgUrl+'" alt="">';
+  h+='<div class="info"><h3>'+name+'</h3>';
+  h+='<p>'+card.card_id+' | '+(card.rarity||'?')+' | '+(card.color||'?')+' | '+(card.set_id||'?')+'</p>';
+  h+='<p>'+(card.card_type||'')+' | Cost:'+(card.cost||'-')+' Pw:'+(card.power||'-')+'</p>';
+  if(inCol>0)h+='<p style="color:var(--acc)">In collection: x'+inCol+'</p>';
+  h+='</div>';
+  h+='<button class="add-btn" onclick="addToCol(\''+card.card_id+'\')">+ Add</button>';
+  h+='</div>';
+  document.getElementById(resultDiv).innerHTML=h;
+}
+
+function manualAdd(){
+  var input=document.getElementById('manualId');
+  var id=input.value.trim().toUpperCase();
+  if(!id)return;
+  lookupAndShow(id,'manualResult','manualStatus');
+  input.value='';
+  input.focus();
+}
+
+// Collection management
+function addToCol(cardId){
+  COL[cardId]=(COL[cardId]||0)+1;
+  saveCollection();
+  updateColCount();
+  // Update result display
+  var statusEl=document.querySelector('.tab.active .status');
+  if(statusEl)statusEl.textContent='Added '+cardId+' (x'+COL[cardId]+' in collection)';
+}
+
+function removeFromCol(cardId){
+  if(COL[cardId])COL[cardId]--;
+  if(COL[cardId]<=0)delete COL[cardId];
+  saveCollection();
+  renderCollection();
+}
+
+function addOneCol(cardId){
+  COL[cardId]=(COL[cardId]||0)+1;
+  saveCollection();
+  renderCollection();
+}
+
+function saveCollection(){
+  try{localStorage.setItem('optcg_collection',JSON.stringify(COL));}catch(e){}
+  updateColCount();
+}
+
+function loadCollection(){
+  try{
+    var saved=localStorage.getItem('optcg_collection');
+    if(saved)COL=JSON.parse(saved);
+  }catch(e){}
+  updateColCount();
+}
+
+function updateColCount(){
+  var unique=Object.keys(COL).length;
+  var total=0;for(var k in COL)total+=COL[k];
+  var sets={};for(var k in COL){
+    for(var i=0;i<CARDS.length;i++){
+      if(CARDS[i].card_id===k){sets[CARDS[i].set_id||'?']=1;break;}
+    }
+  }
+  document.getElementById('colCount').textContent=unique+' unique, '+total+' total';
+  document.getElementById('csUnique').textContent=unique;
+  document.getElementById('csTotal').textContent=total;
+  document.getElementById('csSets').textContent=Object.keys(sets).length;
+}
+
+function renderCollection(){
+  var q=(document.getElementById('colSearch').value||'').toLowerCase();
+  var list=document.getElementById('colList');
+  var keys=Object.keys(COL);
+  if(keys.length===0){
+    list.innerHTML='<div class="empty"><div class="ico">&#x1F4E6;</div><p>No cards scanned yet.</p></div>';
+    return;
+  }
+
+  // Build entries with card data
+  var entries=[];
+  for(var i=0;i<keys.length;i++){
+    var id=keys[i];var qty=COL[id];
+    var card=null;
+    for(var j=0;j<CARDS.length;j++){
+      if(CARDS[j].card_id===id){card=CARDS[j];break;}
+    }
+    if(!card)card={card_id:id,name_en:id,rarity:'?',color:'?',set_id:'?',cost:'',power:'',card_type:''};
+    var name=(card.name_en||card.name_jp||id).toLowerCase();
+    if(q&&name.indexOf(q)===-1&&id.toLowerCase().indexOf(q)===-1)continue;
+    entries.push({card:card,qty:qty});
+  }
+  entries.sort(function(a,b){return a.card.card_id<b.card.card_id?-1:1;});
+
+  var h='';
+  for(var i=0;i<entries.length;i++){
+    var e=entries[i];var c=e.card;
+    var imgUrl='https://images.weserv.nl/?url='+encodeURIComponent('https://en.onepiece-cardgame.com/images/cardlist/card/'+c.card_id+'.png')+'&w=80&q=70';
+    h+='<div class="col-card">';
+    h+='<img src="'+imgUrl+'" alt="">';
+    h+='<div class="info"><div class="nm">'+(c.name_en||c.name_jp||c.card_id)+'</div>';
+    h+='<div class="mt">'+c.card_id+' | '+(c.rarity||'?')+' | '+(c.color||'?')+' | '+(c.set_id||'?')+'</div></div>';
+    h+='<div class="qty"><button onclick="removeFromCol(\''+c.card_id+'\')">&#x2212;</button>';
+    h+='<span>'+e.qty+'</span>';
+    h+='<button onclick="addOneCol(\''+c.card_id+'\')">+</button></div></div>';
+  }
+  list.innerHTML=h;
+  updateColCount();
+}
+
+function clearCollection(){
+  if(confirm('Clear entire collection?')){
+    COL={};saveCollection();renderCollection();
+  }
+}
+
+function exportCollection(){
+  var lines=['card_id,name,rarity,color,set,quantity'];
+  var keys=Object.keys(COL).sort();
+  for(var i=0;i<keys.length;i++){
+    var id=keys[i];var qty=COL[id];
+    var card=null;
+    for(var j=0;j<CARDS.length;j++){
+      if(CARDS[j].card_id===id){card=CARDS[j];break;}
+    }
+    var name=card?(card.name_en||card.name_jp||id):id;
+    var rarity=card?card.rarity:'';
+    var color=card?card.color:'';
+    var set=card?card.set_id:'';
+    lines.push('"'+id+'","'+name.replace(/"/g,'""')+'","'+rarity+'","'+color+'","'+set+'",'+qty);
+  }
+  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='optcg_collection.csv';
+  a.click();
+}
+
+function importCollection(){
+  document.getElementById('importFile').click();
+}
+
+function handleImport(input){
+  var file=input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var text=e.target.result;
+    if(file.name.endsWith('.json')){
+      try{
+        var data=JSON.parse(text);
+        if(typeof data==='object'){
+          for(var k in data){COL[k]=(COL[k]||0)+(parseInt(data[k])||1);}
+          saveCollection();renderCollection();
+          alert('Imported '+Object.keys(data).length+' cards');
+        }
+      }catch(err){alert('Invalid JSON');}
+    }else{
+      // CSV
+      var lines=text.split('\n');
+      var count=0;
+      for(var i=1;i<lines.length;i++){
+        var parts=lines[i].split(',');
+        if(parts.length>=2){
+          var id=parts[0].replace(/"/g,'').trim();
+          var qty=parseInt(parts[parts.length-1])||1;
+          if(id){COL[id]=(COL[id]||0)+qty;count++;}
+        }
+      }
+      saveCollection();renderCollection();
+      alert('Imported '+count+' entries');
+    }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function showTab(name,el){
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  var links=document.querySelectorAll('.nav a');
+  for(var i=0;i<links.length;i++)links[i].classList.remove('active');
+  if(el)el.classList.add('active');
+  if(name==='collection')renderCollection();
+  if(name==='scan')startCamera();
+}
+
+// Start camera on load
+startCamera();
+</script>
+</body>
+</html>
