@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPTCG Portfolio Tracker</title>
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║  OPTCG Portfolio Tracker v1.0.0                                  ║
+║  Created: 2026-04-11 09:17 SGT                                  ║
+║  Author: Claude (Anthropic) for Hafiz                            ║
+║                                                                  ║
+║  Features:                                                       ║
+║  - Portfolio Value: Live card prices from OPTCG API (USD→SGD)    ║
+║  - Price Charts: Historical price tracking with local snapshots  ║
+║  - Shopping List: Deck diff against owned collection             ║
+║                                                                  ║
+║  Data Sources:                                                   ║
+║  - Collection: localStorage key 'optcg_collection_v2'            ║
+║  - Card DB: optcg_cards_merged.json                              ║
+║  - Prices: optcgapi.com (free, no auth)                          ║
+║  - FX Rate: Cached USD/SGD rate                                  ║
+║                                                                  ║
+║  Revision History:                                               ║
+║  v1.0.0 (2026-04-11 09:17 SGT) - Initial release                ║
+║    - Portfolio tab: collection value, per-card breakdown          ║
+║    - Price Charts tab: local snapshot history + Chart.js graphs   ║
+║    - Shopping List tab: Lucy & Ace deck diffs                    ║
+║    - USD→SGD conversion with live FX rate fallback               ║
+║    - CORS detection with clear error messaging                   ║
+║    - Price snapshots saved to localStorage on each load          ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg-deep: #0a0c14;
+    --bg-card: #12151f;
+    --bg-card-hover: #181c2a;
+    --bg-surface: #1a1e2e;
+    --border: #252a3a;
+    --border-light: #2f3548;
+    --text-primary: #e8eaf0;
+    --text-secondary: #8b90a0;
+    --text-muted: #555a6e;
+    --accent-gold: #f0b940;
+    --accent-gold-dim: #c49520;
+    --accent-red: #e8434a;
+    --accent-green: #3cc68a;
+    --accent-blue: #4a9eff;
+    --accent-purple: #a87cff;
+    --gradient-gold: linear-gradient(135deg, #f0b940 0%, #e09010 100%);
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.4);
+    --shadow-elevated: 0 8px 32px rgba(0,0,0,0.6);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Auth Gate ── */
+  #auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--bg-deep);
+  }
+  #auth-gate .auth-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+  }
+  #auth-gate h2 {
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--accent-gold);
+  }
+  #auth-gate p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+  #auth-gate input {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  #auth-gate input:focus { border-color: var(--accent-gold); }
+  #auth-gate button {
+    width: 100%;
+    padding: 12px;
+    background: var(--gradient-gold);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #0a0c14;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #auth-gate button:hover { opacity: 0.9; }
+  #auth-error { color: var(--accent-red); font-size: 13px; margin-top: 8px; display: none; }
+
+  /* ── Main App ── */
+  #app { display: none; }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-logo {
+    width: 36px;
+    height: 36px;
+    background: var(--gradient-gold);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--bg-deep);
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header h1 span { color: var(--accent-gold); }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .fx-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: var(--text-secondary);
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.error { background: var(--accent-red); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Summary Cards ── */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 20px 24px 0;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .summary-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .summary-card .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .summary-card .value.gold { color: var(--accent-gold); }
+  .summary-card .sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sub .green { color: var(--accent-green); }
+  .sub .red { color: var(--accent-red); }
+
+  /* ── Tabs ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 20px 24px 0;
+  }
+  .tab-btn {
+    padding: 10px 24px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    color: var(--text-secondary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    top: 1px;
+  }
+  .tab-btn:hover { color: var(--text-primary); background: var(--bg-card); }
+  .tab-btn.active {
+    background: var(--bg-card);
+    color: var(--accent-gold);
+    font-weight: 600;
+    border-color: var(--border);
+  }
+  .tab-content {
+    margin: 0 24px 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) var(--radius);
+    padding: 20px;
+    min-height: 400px;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Portfolio Table ── */
+  .controls-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    outline: none;
+  }
+  .search-input:focus { border-color: var(--accent-gold); }
+  .filter-select {
+    padding: 8px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  .btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+  .btn-primary {
+    background: var(--gradient-gold);
+    color: var(--bg-deep);
+    border: none;
+    font-weight: 600;
+  }
+  .btn-primary:hover { opacity: 0.9; color: var(--bg-deep); }
+
+  .portfolio-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .portfolio-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .portfolio-table th:hover { color: var(--text-secondary); }
+  .portfolio-table th .sort-arrow { margin-left: 4px; font-size: 10px; }
+  .portfolio-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .portfolio-table tr:hover td { background: var(--bg-card-hover); }
+  .portfolio-table .card-name {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .portfolio-table .card-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .portfolio-table .price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .portfolio-table .variant-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .variant-badge.regular { background: #1e2736; color: #7b9cc0; }
+  .variant-badge.alt_art { background: #2a1f2e; color: #c07bdb; }
+  .variant-badge.sp { background: #2e2a1f; color: #dbc07b; }
+  .variant-badge.manga_rare { background: #1f2e2a; color: #7bdbc0; }
+  .variant-badge.sec { background: #2e1f1f; color: #db7b7b; }
+  .variant-badge.don { background: #2e2e1f; color: #dbdb7b; }
+
+  .rarity-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .rarity-L { background: #f0b940; }
+  .rarity-SR { background: #e8434a; }
+  .rarity-SEC { background: #a87cff; }
+  .rarity-SP { background: #ff6b9d; }
+  .rarity-R { background: #4a9eff; }
+  .rarity-UC { background: #3cc68a; }
+  .rarity-C { background: #8b90a0; }
+  .rarity-MR { background: #00e5ff; }
+
+  /* ── Charts ── */
+  .chart-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .chart-header h3 { font-size: 15px; font-weight: 600; }
+  .chart-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 280px;
+  }
+  .chart-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
+
+  .card-select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .card-select-item {
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+  }
+  .card-select-item:hover { border-color: var(--accent-gold); }
+  .card-select-item.selected { border-color: var(--accent-gold); background: rgba(240,185,64,0.08); }
+  .card-select-item .item-name { font-weight: 500; }
+  .card-select-item .item-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ── Shopping List ── */
+  .deck-selector {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .deck-card {
+    flex: 1;
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .deck-card:hover { border-color: var(--accent-blue); }
+  .deck-card.selected { border-color: var(--accent-gold); background: rgba(240,185,64,0.06); }
+  .deck-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .deck-card .deck-leader {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .shopping-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .shopping-stat {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    text-align: center;
+  }
+  .shopping-stat .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .shopping-stat .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; margin-top: 4px; }
+
+  .shopping-table { width: 100%; border-collapse: collapse; }
+  .shopping-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .shopping-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .shopping-table tr:hover td { background: var(--bg-card-hover); }
+  .owned-badge { color: var(--accent-green); font-weight: 600; }
+  .need-badge { color: var(--accent-red); font-weight: 600; }
+
+  /* ── Loading & Empty States ── */
+  .loading-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-secondary); font-size: 13px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+  .error-banner {
+    background: rgba(232, 67, 74, 0.1);
+    border: 1px solid rgba(232, 67, 74, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--accent-red);
+    display: none;
+  }
+
+  .info-banner {
+    background: rgba(74, 158, 255, 0.1);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--accent-blue);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .summary-bar { grid-template-columns: 1fr 1fr; }
+    .header { padding: 12px 16px; }
+    .tab-content { margin: 0 16px 16px; padding: 16px; }
+    .summary-bar { padding: 16px 16px 0; }
+    .tab-bar { padding: 16px 16px 0; }
+    .tab-btn { padding: 8px 14px; font-size: 13px; }
+    .shopping-summary { grid-template-columns: 1fr; }
+    .deck-selector { flex-direction: column; }
+    .portfolio-table { font-size: 12px; }
+    .portfolio-table td, .portfolio-table th { padding: 8px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ AUTH GATE ══════════════ -->
+<div id="auth-gate">
+  <div class="auth-box">
+    <h2>🏴‍☠️ OPTCG Portfolio</h2>
+    <p>Enter password to continue</p>
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="off">
+    <button onclick="authenticate()">Enter</button>
+    <div id="auth-error">Incorrect password</div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">OP</div>
+      <h1><span>Portfolio</span> Tracker</h1>
+    </div>
+    <div class="header-right">
+      <span class="fx-badge" id="fx-badge">USD/SGD: —</span>
+      <div class="status-dot" id="api-status" title="API Status"></div>
+      <button class="btn" onclick="refreshPrices()" id="refresh-btn">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-bar">
+    <div class="summary-card">
+      <div class="label">Portfolio Value (SGD)</div>
+      <div class="value gold" id="total-sgd">—</div>
+      <div class="sub" id="total-usd"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Unique Cards</div>
+      <div class="value" id="unique-cards">—</div>
+      <div class="sub" id="total-qty"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Most Valuable Card</div>
+      <div class="value" id="top-card-value" style="font-size:18px">—</div>
+      <div class="sub" id="top-card-name"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Last Updated</div>
+      <div class="value" id="last-updated" style="font-size:16px">—</div>
+      <div class="sub" id="data-source"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('portfolio')">💰 Portfolio</button>
+    <button class="tab-btn" onclick="switchTab('charts')">📈 Price Charts</button>
+    <button class="tab-btn" onclick="switchTab('shopping')">🛒 Shopping List</button>
+  </div>
+
+  <div class="tab-content">
+    <div id="error-banner" class="error-banner"></div>
+
+    <!-- ── PORTFOLIO TAB ── -->
+    <div id="tab-portfolio" class="tab-panel active">
+      <div class="controls-row">
+        <input type="text" class="search-input" id="portfolio-search" placeholder="Search cards by name or ID..." oninput="filterPortfolio()">
+        <select class="filter-select" id="portfolio-set-filter" onchange="filterPortfolio()">
+          <option value="">All Sets</option>
+        </select>
+        <select class="filter-select" id="portfolio-sort" onchange="sortPortfolio()">
+          <option value="value-desc">Value (High→Low)</option>
+          <option value="value-asc">Value (Low→High)</option>
+          <option value="name-asc">Name (A→Z)</option>
+          <option value="price-desc">Price (High→Low)</option>
+          <option value="qty-desc">Qty (High→Low)</option>
+        </select>
+      </div>
+      <div id="portfolio-loading" class="loading-spinner">
+        <div class="spinner"></div>
+        <div class="loading-text">Fetching prices...</div>
+      </div>
+      <div id="portfolio-empty" class="empty-state" style="display:none">
+        <div class="empty-icon">📦</div>
+        <h3>No Collection Found</h3>
+        <p>Scan some cards using the OPTCG Scanner first. Your collection is stored in your browser's localStorage.</p>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="portfolio-table" id="portfolio-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th>Set</th>
+              <th>Variant</th>
+              <th>Rarity</th>
+              <th>Qty</th>
+              <th>Price (USD)</th>
+              <th>Price (SGD)</th>
+              <th>Total (SGD)</th>
+            </tr>
+          </thead>
+          <tbody id="portfolio-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PRICE CHARTS TAB ── -->
+    <div id="tab-charts" class="tab-panel">
+      <div class="info-banner">
+        📊 Price history is built from local snapshots saved each time you load this page. The longer you use it, the richer your charts become. The OPTCG API also provides 2-week price data for initial history.
+      </div>
+      <div class="controls-row">
+        <input type="text" class="search-input" id="chart-search" placeholder="Search cards to chart..." oninput="filterChartCards()">
+        <select class="filter-select" id="chart-range">
+          <option value="7">7 Days</option>
+          <option value="30" selected>30 Days</option>
+          <option value="90">90 Days</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
+      <div class="card-select-grid" id="chart-card-grid"></div>
+      <div class="chart-container" id="price-chart-container" style="display:none">
+        <div class="chart-header">
+          <h3 id="chart-title">Select a card above</h3>
+          <span class="fx-badge" id="chart-current-price">—</span>
+        </div>
+        <div class="chart-canvas-wrap">
+          <canvas id="price-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Portfolio value over time -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3>Portfolio Value Over Time (SGD)</h3>
+        </div>
+        <div class="chart-canvas-wrap">
+          <canvas id="portfolio-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SHOPPING LIST TAB ── -->
+    <div id="tab-shopping" class="tab-panel">
+      <div class="deck-selector">
+        <div class="deck-card selected" onclick="selectDeck('lucy')" id="deck-lucy">
+          <h3>🔴🔵 Red/Blue Lucy</h3>
+          <div class="deck-leader">OP15-002</div>
+        </div>
+        <div class="deck-card" onclick="selectDeck('ace')" id="deck-ace">
+          <h3>🔴🔵 Red/Blue Ace</h3>
+          <div class="deck-leader">OP13-002</div>
+        </div>
+        <div class="deck-card" onclick="selectDeck('custom')" id="deck-custom">
+          <h3>📝 Custom Deck</h3>
+          <div class="deck-leader">Paste a list</div>
+        </div>
+      </div>
+      <div id="custom-deck-input" style="display:none; margin-bottom:16px">
+        <textarea id="custom-deck-text" style="width:100%; height:120px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-family:'JetBrains Mono',monospace; font-size:12px; padding:12px; resize:vertical; outline:none;" placeholder="Paste card list, one per line:&#10;4x OP01-025&#10;3x OP05-015&#10;OP13-002 x1"></textarea>
+        <button class="btn btn-primary" style="margin-top:8px" onclick="parseCustomDeck()">Load Deck</button>
+      </div>
+      <div class="shopping-summary" id="shopping-summary" style="display:none">
+        <div class="shopping-stat">
+          <div class="stat-label">Cards Owned</div>
+          <div class="stat-value green" id="shop-owned">—</div>
+        </div>
+        <div class="shopping-stat">
+          <div class="stat-label">Cards Needed</div>
+          <div class="stat-value" style="color:var(--accent-red)" id="shop-needed">—</div>
+        </div>
+        <div class="shopping-stat">
+          <div class="stat-label">Est. Cost (SGD)</div>
+          <div class="stat-value gold" id="shop-cost">—</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="shopping-table" id="shopping-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th>Rarity</th>
+              <th>Needed</th>
+              <th>Owned</th>
+              <th>To Buy</th>
+              <th>Price (SGD)</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="shopping-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// OPTCG Portfolio Tracker v1.0.0
+// ════════════════════════════════════════════════════════════════
+
+const AUTH_HASH = '1fbf355b58eb7649b1a0cbd5d3b3c576b284c79c480a251200ec398ca4ca87be';
+const OPTCG_API_BASE = 'https://optcgapi.com/api';
+const COLLECTION_KEY = 'optcg_collection_v2';
+const COLLECTION_KEY_OLD = 'optcg_collection';
+const PRICE_CACHE_KEY = 'optcg_price_cache';
+const PRICE_HISTORY_KEY = 'optcg_price_history';
+const PORTFOLIO_HISTORY_KEY = 'optcg_portfolio_history';
+const FX_CACHE_KEY = 'optcg_fx_cache';
+const DEFAULT_FX_RATE = 1.34; // Approximate USD/SGD fallback
+
+let fxRate = DEFAULT_FX_RATE;
+let priceCache = {};    // { card_id: { market_price, inventory_price, name, date_scraped, variant_prices: {} } }
+let portfolioData = []; // Processed portfolio rows
+let cardDB = {};        // From optcg_cards_merged.json
+let priceChart = null;
+let portfolioChart = null;
+let selectedDeck = 'lucy';
+
+// ── Pre-built Deck Lists ──
+// These are the full 50-card lists for Lucy and Ace.
+// Format: { card_id: quantity }
+// NOTE: Update these when Hafiz finalizes his decklists.
+const DECK_LISTS = {
+  lucy: {
+    leader: 'OP15-002',
+    name: 'Red/Blue Lucy',
+    cards: {
+      // Placeholder deck — update with Hafiz's actual 50-card list
+      'OP15-002': 1,  // Leader
+      'OP01-025': 4,  // Nami
+      'OP05-015': 4,  // placeholder
+      'OP13-015': 4,  // placeholder
+      'OP13-025': 4,  // placeholder
+      'OP15-010': 4,  // placeholder
+      'OP15-012': 4,  // placeholder
+      'OP15-015': 4,  // placeholder
+      'OP15-018': 3,  // placeholder
+      'OP15-020': 4,  // placeholder
+      'OP15-022': 4,  // placeholder
+      'OP15-030': 4,  // placeholder
+      'OP15-035': 3,  // placeholder
+      'OP15-040': 4,  // placeholder
+    }
+  },
+  ace: {
+    leader: 'OP13-002',
+    name: 'Red/Blue Ace',
+    cards: {
+      // Placeholder deck — update with Hafiz's actual 50-card list
+      'OP13-002': 1,  // Leader
+      'OP13-010': 4,  // placeholder
+      'OP13-012': 4,  // placeholder
+      'OP13-015': 4,  // placeholder
+      'OP13-018': 4,  // placeholder
+      'OP13-020': 4,  // placeholder
+      'OP13-025': 4,  // placeholder
+      'OP01-025': 4,  // placeholder
+      'OP05-015': 4,  // placeholder
+      'OP13-030': 4,  // placeholder
+      'OP13-035': 4,  // placeholder
+      'OP13-040': 4,  // placeholder
+      'OP13-045': 3,  // placeholder
+      'OP13-050': 2,  // placeholder
+    }
+  }
+};
+
+
+// ════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════
+async function sha256(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function authenticate() {
+  const pw = document.getElementById('auth-password').value;
+  const hash = await sha256(pw);
+  if (hash === AUTH_HASH) {
+    sessionStorage.setItem('optcg_auth', 'true');
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    init();
+  } else {
+    document.getElementById('auth-error').style.display = 'block';
+  }
+}
+
+document.getElementById('auth-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') authenticate();
+});
+
+// Check session
+if (sessionStorage.getItem('optcg_auth') === 'true') {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  // Defer init to after DOM & Chart.js ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 100);
+  }
+}
+
+
+// ════════════════════════════════════════
+// INITIALIZATION
+// ════════════════════════════════════════
+async function init() {
+  loadPriceCache();
+  await loadFxRate();
+  const collection = getCollection();
+
+  if (Object.keys(collection).length === 0) {
+    document.getElementById('portfolio-loading').style.display = 'none';
+    document.getElementById('portfolio-empty').style.display = 'block';
+    updateSummary([], 0);
+    return;
+  }
+
+  await fetchPrices(collection);
+  buildPortfolio(collection);
+  renderPortfolio();
+  updateSummary(portfolioData, fxRate);
+  saveSnapshot();
+  renderPortfolioHistoryChart();
+  buildChartCardGrid();
+  selectDeck('lucy');
+}
+
+
+// ════════════════════════════════════════
+// COLLECTION
+// ════════════════════════════════════════
+function getCollection() {
+  let collection = {};
+
+  // Read v2 format: {"card_id|lang|variant": qty}
+  try {
+    const v2 = JSON.parse(localStorage.getItem(COLLECTION_KEY) || '{}');
+    for (const [key, qty] of Object.entries(v2)) {
+      if (qty > 0) collection[key] = qty;
+    }
+  } catch (e) { console.warn('Failed to parse collection v2:', e); }
+
+  // Also read old format if present: {"card_id": qty}
+  try {
+    const v1 = JSON.parse(localStorage.getItem(COLLECTION_KEY_OLD) || '{}');
+    for (const [cardId, qty] of Object.entries(v1)) {
+      if (qty > 0) {
+        const key = `${cardId}|en|regular`;
+        if (!collection[key]) collection[key] = 0;
+        collection[key] += qty;
+      }
+    }
+  } catch (e) { console.warn('Failed to parse collection v1:', e); }
+
+  return collection;
+}
+
+
+// ════════════════════════════════════════
+// FX RATE
+// ════════════════════════════════════════
+async function loadFxRate() {
+  // Try cached rate first (valid for 6 hours)
+  try {
+    const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || '{}');
+    if (cached.rate && cached.ts && (Date.now() - cached.ts < 6 * 3600 * 1000)) {
+      fxRate = cached.rate;
+      document.getElementById('fx-badge').textContent = `USD/SGD: ${fxRate.toFixed(4)}`;
+      return;
+    }
+  } catch (e) {}
+
+  // Fetch live rate
+  try {
+    // Using a free exchange rate API
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rates && data.rates.SGD) {
+        fxRate = data.rates.SGD;
+        localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rate: fxRate, ts: Date.now() }));
+      }
+    }
+  } catch (e) {
+    console.warn('FX rate fetch failed, using default:', DEFAULT_FX_RATE);
+  }
+
+  document.getElementById('fx-badge').textContent = `USD/SGD: ${fxRate.toFixed(4)}`;
+}
+
+
+// ════════════════════════════════════════
+// PRICE FETCHING
+// ════════════════════════════════════════
+function loadPriceCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}');
+    if (cached.data && cached.ts) {
+      priceCache = cached.data;
+    }
+  } catch (e) {}
+}
+
+function savePriceCache() {
+  localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify({ data: priceCache, ts: Date.now() }));
+}
+
+async function fetchPrices(collection) {
+  // Extract unique card IDs from collection keys
+  const cardIds = new Set();
+  for (const key of Object.keys(collection)) {
+    const parts = key.split('|');
+    cardIds.add(parts[0]);
+  }
+
+  const statusDot = document.getElementById('api-status');
+  const errorBanner = document.getElementById('error-banner');
+  let fetchedCount = 0;
+  let errorCount = 0;
+  let corsBlocked = false;
+
+  // Check if cache is fresh (< 1 hour)
+  try {
+    const cached = JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}');
+    if (cached.ts && (Date.now() - cached.ts < 3600 * 1000) && cached.data && Object.keys(cached.data).length > 0) {
+      priceCache = cached.data;
+      document.getElementById('portfolio-loading').querySelector('.loading-text').textContent = 'Using cached prices...';
+      await sleep(300);
+      statusDot.classList.remove('error');
+      statusDot.title = 'Using cached prices';
+      return;
+    }
+  } catch (e) {}
+
+  document.getElementById('portfolio-loading').querySelector('.loading-text').textContent = `Fetching prices for ${cardIds.size} cards...`;
+
+  // Batch fetch — sequential to be kind to the free API
+  for (const cardId of cardIds) {
+    try {
+      const res = await fetch(`${OPTCG_API_BASE}/sets/card/${cardId}/`, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        const data = await res.json();
+        // data is an array: base card + parallel(s)
+        if (Array.isArray(data) && data.length > 0) {
+          const base = data[0];
+          priceCache[cardId] = {
+            market_price: base.market_price,
+            inventory_price: base.inventory_price,
+            name: base.card_name,
+            rarity: base.rarity,
+            set_id: base.set_id,
+            set_name: base.set_name,
+            date_scraped: base.date_scraped,
+            variants: {}
+          };
+          // Store parallel/alt art prices
+          for (const variant of data) {
+            const isParallel = variant.card_name.includes('(Parallel)') || variant.card_name.includes('(Alternate)');
+            const vKey = isParallel ? 'alt_art' : 'regular';
+            priceCache[cardId].variants[vKey] = {
+              market_price: variant.market_price,
+              inventory_price: variant.inventory_price,
+              name: variant.card_name,
+              image_id: variant.card_image_id
+            };
+          }
+          fetchedCount++;
+        }
+      } else {
+        errorCount++;
+      }
+    } catch (e) {
+      if (e.name === 'TypeError' && e.message.includes('Failed to fetch')) {
+        corsBlocked = true;
+      }
+      errorCount++;
+    }
+
+    // Update progress
+    const progress = ((fetchedCount + errorCount) / cardIds.size * 100).toFixed(0);
+    document.getElementById('portfolio-loading').querySelector('.loading-text').textContent =
+      `Fetching prices... ${progress}% (${fetchedCount}/${cardIds.size})`;
+
+    // Small delay between requests to be respectful
+    await sleep(150);
+  }
+
+  if (corsBlocked) {
+    statusDot.classList.add('error');
+    statusDot.title = 'CORS blocked';
+    errorBanner.innerHTML = `⚠️ <strong>CORS blocked:</strong> The OPTCG API doesn't allow browser requests from this domain. Prices shown are from the last cached data. To fix this, we can add a proxy server or use a Python price fetcher script.`;
+    errorBanner.style.display = 'block';
+  } else if (errorCount > 0 && fetchedCount === 0) {
+    statusDot.classList.add('error');
+    statusDot.title = 'API error';
+    errorBanner.innerHTML = `⚠️ Failed to fetch prices. Showing cached data if available.`;
+    errorBanner.style.display = 'block';
+  } else {
+    statusDot.classList.remove('error');
+    statusDot.title = `${fetchedCount} cards priced`;
+  }
+
+  savePriceCache();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+
+// ════════════════════════════════════════
+// PORTFOLIO BUILDING
+// ════════════════════════════════════════
+function buildPortfolio(collection) {
+  portfolioData = [];
+
+  for (const [key, qty] of Object.entries(collection)) {
+    const [cardId, lang, variant] = key.split('|');
+    const cached = priceCache[cardId];
+    let priceUSD = 0;
+    let cardName = cardId;
+    let rarity = '?';
+    let setId = cardId.substring(0, cardId.lastIndexOf('-')) || '?';
+    let setName = '';
+
+    if (cached) {
+      cardName = cached.name || cardId;
+      rarity = cached.rarity || '?';
+      setId = cached.set_id || setId;
+      setName = cached.set_name || '';
+
+      // Try to get variant-specific price
+      const vKey = (variant === 'regular') ? 'regular' : variant;
+      if (cached.variants && cached.variants[vKey]) {
+        priceUSD = cached.variants[vKey].market_price || cached.market_price || 0;
+      } else if (variant !== 'regular' && cached.variants && cached.variants['alt_art']) {
+        // Fallback: alt_art covers most non-regular variants
+        priceUSD = cached.variants['alt_art'].market_price || cached.market_price || 0;
+      } else {
+        priceUSD = cached.market_price || 0;
+      }
+    }
+
+    const priceSGD = priceUSD * fxRate;
+    const totalSGD = priceSGD * qty;
+
+    portfolioData.push({
+      key, cardId, lang, variant, qty,
+      cardName, rarity, setId, setName,
+      priceUSD, priceSGD, totalSGD
+    });
+  }
+}
+
+function renderPortfolio() {
+  const tbody = document.getElementById('portfolio-tbody');
+  const table = document.getElementById('portfolio-table');
+  const loading = document.getElementById('portfolio-loading');
+
+  loading.style.display = 'none';
+
+  if (portfolioData.length === 0) {
+    document.getElementById('portfolio-empty').style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+
+  table.style.display = 'table';
+
+  // Populate set filter
+  const sets = [...new Set(portfolioData.map(r => r.setId))].sort();
+  const setFilter = document.getElementById('portfolio-set-filter');
+  setFilter.innerHTML = '<option value="">All Sets</option>';
+  sets.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    setFilter.appendChild(opt);
+  });
+
+  sortPortfolio();
+}
+
+function sortPortfolio() {
+  const sortVal = document.getElementById('portfolio-sort').value;
+  const [field, dir] = sortVal.split('-');
+  const mult = dir === 'desc' ? -1 : 1;
+
+  portfolioData.sort((a, b) => {
+    switch (field) {
+      case 'value': return (a.totalSGD - b.totalSGD) * mult;
+      case 'name': return a.cardName.localeCompare(b.cardName) * mult;
+      case 'price': return (a.priceSGD - b.priceSGD) * mult;
+      case 'qty': return (a.qty - b.qty) * mult;
+      default: return 0;
+    }
+  });
+
+  filterPortfolio();
+}
+
+function filterPortfolio() {
+  const search = document.getElementById('portfolio-search').value.toLowerCase();
+  const setFilter = document.getElementById('portfolio-set-filter').value;
+  const tbody = document.getElementById('portfolio-tbody');
+
+  const filtered = portfolioData.filter(r => {
+    if (search && !r.cardName.toLowerCase().includes(search) && !r.cardId.toLowerCase().includes(search)) return false;
+    if (setFilter && r.setId !== setFilter) return false;
+    return true;
+  });
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td>
+        <div class="card-name">${escHtml(r.cardName)}</div>
+        <div class="card-id">${escHtml(r.cardId)} · ${r.lang.toUpperCase()}</div>
+      </td>
+      <td style="font-size:12px; color:var(--text-secondary)">${escHtml(r.setId)}</td>
+      <td><span class="variant-badge ${r.variant}">${formatVariant(r.variant)}</span></td>
+      <td><span class="rarity-dot rarity-${r.rarity}"></span>${r.rarity}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${r.qty}</td>
+      <td class="price">$${r.priceUSD.toFixed(2)}</td>
+      <td class="price">S$${r.priceSGD.toFixed(2)}</td>
+      <td class="price" style="font-weight:600; color:${r.totalSGD > 10 ? 'var(--accent-gold)' : 'var(--text-primary)'}">S$${r.totalSGD.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+function formatVariant(v) {
+  const map = { regular: 'REG', alt_art: 'ALT ART', sp: 'SP', manga_rare: 'MR', sec: 'SEC', don: 'DON' };
+  return map[v] || v.toUpperCase();
+}
+
+function updateSummary(data, fx) {
+  const totalSGD = data.reduce((s, r) => s + r.totalSGD, 0);
+  const totalUSD = data.reduce((s, r) => s + (r.priceUSD * r.qty), 0);
+  const totalQty = data.reduce((s, r) => s + r.qty, 0);
+
+  document.getElementById('total-sgd').textContent = `S$${totalSGD.toFixed(2)}`;
+  document.getElementById('total-usd').textContent = `≈ US$${totalUSD.toFixed(2)}`;
+  document.getElementById('unique-cards').textContent = data.length;
+  document.getElementById('total-qty').textContent = `${totalQty} total cards`;
+
+  if (data.length > 0) {
+    const top = [...data].sort((a, b) => b.totalSGD - a.totalSGD)[0];
+    document.getElementById('top-card-value').textContent = `S$${top.totalSGD.toFixed(2)}`;
+    document.getElementById('top-card-name').textContent = `${top.cardName} (${top.cardId})`;
+  }
+
+  const now = new Date();
+  const sgt = new Date(now.getTime() + (8 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+  const timeStr = sgt.toISOString().replace('T', ' ').substring(0, 19) + ' SGT';
+  document.getElementById('last-updated').textContent = timeStr.substring(11, 19);
+  document.getElementById('data-source').textContent = timeStr.substring(0, 10);
+}
+
+
+// ════════════════════════════════════════
+// PRICE HISTORY & SNAPSHOTS
+// ════════════════════════════════════════
+function saveSnapshot() {
+  const today = new Date().toISOString().substring(0, 10);
+
+  // Save per-card price snapshot
+  try {
+    const history = JSON.parse(localStorage.getItem(PRICE_HISTORY_KEY) || '{}');
+    for (const [cardId, data] of Object.entries(priceCache)) {
+      if (!history[cardId]) history[cardId] = [];
+      // Don't duplicate today's entry
+      const last = history[cardId][history[cardId].length - 1];
+      if (!last || last.date !== today) {
+        history[cardId].push({
+          date: today,
+          market: data.market_price || 0,
+          inventory: data.inventory_price || 0
+        });
+        // Keep max 365 days
+        if (history[cardId].length > 365) history[cardId].shift();
+      }
+    }
+    localStorage.setItem(PRICE_HISTORY_KEY, JSON.stringify(history));
+  } catch (e) { console.warn('Failed to save price history:', e); }
+
+  // Save portfolio total snapshot
+  try {
+    const portHistory = JSON.parse(localStorage.getItem(PORTFOLIO_HISTORY_KEY) || '[]');
+    const totalSGD = portfolioData.reduce((s, r) => s + r.totalSGD, 0);
+    const totalUSD = portfolioData.reduce((s, r) => s + (r.priceUSD * r.qty), 0);
+    const last = portHistory[portHistory.length - 1];
+    if (!last || last.date !== today) {
+      portHistory.push({ date: today, sgd: totalSGD, usd: totalUSD, cards: portfolioData.length });
+      if (portHistory.length > 365) portHistory.shift();
+    }
+    localStorage.setItem(PORTFOLIO_HISTORY_KEY, JSON.stringify(portHistory));
+  } catch (e) { console.warn('Failed to save portfolio history:', e); }
+}
+
+
+// ════════════════════════════════════════
+// CHARTS
+// ════════════════════════════════════════
+function buildChartCardGrid() {
+  const grid = document.getElementById('chart-card-grid');
+  const cards = Object.entries(priceCache)
+    .map(([id, data]) => ({ id, name: data.name, price: data.market_price || 0 }))
+    .sort((a, b) => b.price - a.price);
+
+  grid.innerHTML = cards.map(c => `
+    <div class="card-select-item" data-card-id="${c.id}" onclick="selectChartCard('${c.id}')">
+      <div class="item-name">${escHtml(c.name)}</div>
+      <div class="item-id">${c.id} · $${c.price.toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+function filterChartCards() {
+  const search = document.getElementById('chart-search').value.toLowerCase();
+  const items = document.querySelectorAll('.card-select-item');
+  items.forEach(item => {
+    const name = item.querySelector('.item-name').textContent.toLowerCase();
+    const id = item.dataset.cardId.toLowerCase();
+    item.style.display = (name.includes(search) || id.includes(search)) ? '' : 'none';
+  });
+}
+
+function selectChartCard(cardId) {
+  // Toggle selection
+  document.querySelectorAll('.card-select-item').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.card-select-item[data-card-id="${cardId}"]`);
+  if (el) el.classList.add('selected');
+
+  renderPriceChart(cardId);
+}
+
+function renderPriceChart(cardId) {
+  const container = document.getElementById('price-chart-container');
+  container.style.display = 'block';
+
+  const cached = priceCache[cardId];
+  document.getElementById('chart-title').textContent = cached ? cached.name : cardId;
+  document.getElementById('chart-current-price').textContent = cached ?
+    `S$${(cached.market_price * fxRate).toFixed(2)} (US$${cached.market_price.toFixed(2)})` : '—';
+
+  // Get history
+  let history = [];
+  try {
+    const allHistory = JSON.parse(localStorage.getItem(PRICE_HISTORY_KEY) || '{}');
+    history = allHistory[cardId] || [];
+  } catch (e) {}
+
+  // Apply range filter
+  const range = document.getElementById('chart-range').value;
+  if (range !== 'all') {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - parseInt(range));
+    const cutoffStr = cutoff.toISOString().substring(0, 10);
+    history = history.filter(h => h.date >= cutoffStr);
+  }
+
+  if (history.length === 0) {
+    // Show at least today's price
+    if (cached) {
+      history = [{ date: new Date().toISOString().substring(0, 10), market: cached.market_price, inventory: cached.inventory_price }];
+    }
+  }
+
+  const labels = history.map(h => h.date);
+  const marketData = history.map(h => (h.market * fxRate).toFixed(2));
+
+  if (priceChart) priceChart.destroy();
+
+  const ctx = document.getElementById('price-chart').getContext('2d');
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Market Price (SGD)',
+        data: marketData,
+        borderColor: '#f0b940',
+        backgroundColor: 'rgba(240,185,64,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: history.length < 30 ? 4 : 2,
+        pointBackgroundColor: '#f0b940',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1e2e',
+          titleColor: '#e8eaf0',
+          bodyColor: '#e8eaf0',
+          borderColor: '#252a3a',
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => `S$${parseFloat(ctx.raw).toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#555a6e', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10 },
+          grid: { color: '#1e2230' }
+        },
+        y: {
+          ticks: { color: '#555a6e', font: { family: 'JetBrains Mono', size: 10 }, callback: v => `S$${v}` },
+          grid: { color: '#1e2230' }
+        }
+      }
+    }
+  });
+}
+
+function renderPortfolioHistoryChart() {
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem(PORTFOLIO_HISTORY_KEY) || '[]');
+  } catch (e) {}
+
+  // If empty, show today's value
+  if (history.length === 0 && portfolioData.length > 0) {
+    const totalSGD = portfolioData.reduce((s, r) => s + r.totalSGD, 0);
+    history = [{ date: new Date().toISOString().substring(0, 10), sgd: totalSGD }];
+  }
+
+  if (history.length === 0) return;
+
+  const labels = history.map(h => h.date);
+  const values = history.map(h => h.sgd.toFixed(2));
+
+  if (portfolioChart) portfolioChart.destroy();
+
+  const ctx = document.getElementById('portfolio-chart').getContext('2d');
+  portfolioChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Portfolio Value (SGD)',
+        data: values,
+        borderColor: '#3cc68a',
+        backgroundColor: 'rgba(60,198,138,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: history.length < 30 ? 4 : 2,
+        pointBackgroundColor: '#3cc68a',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1e2e',
+          titleColor: '#e8eaf0',
+          bodyColor: '#e8eaf0',
+          borderColor: '#252a3a',
+          borderWidth: 1,
+          callbacks: { label: ctx => `S$${parseFloat(ctx.raw).toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#555a6e', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10 },
+          grid: { color: '#1e2230' }
+        },
+        y: {
+          ticks: { color: '#555a6e', font: { family: 'JetBrains Mono', size: 10 }, callback: v => `S$${v}` },
+          grid: { color: '#1e2230' }
+        }
+      }
+    }
+  });
+}
+
+
+// ════════════════════════════════════════
+// SHOPPING LIST
+// ════════════════════════════════════════
+function selectDeck(deckKey) {
+  selectedDeck = deckKey;
+  document.querySelectorAll('.deck-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`deck-${deckKey}`).classList.add('selected');
+  document.getElementById('custom-deck-input').style.display = deckKey === 'custom' ? 'block' : 'none';
+
+  if (deckKey !== 'custom') {
+    renderShoppingList(DECK_LISTS[deckKey]);
+  }
+}
+
+function parseCustomDeck() {
+  const text = document.getElementById('custom-deck-text').value.trim();
+  if (!text) return;
+
+  const cards = {};
+  text.split('\n').forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    // Parse formats: "4x OP01-025", "OP01-025 x4", "OP01-025 4", "4 OP01-025"
+    let match = line.match(/(\d+)\s*x?\s*(OP\d+-\d+|ST\d+-\d+|EB\d+-\d+|PRB\d+-\d+)/i) ||
+                line.match(/(OP\d+-\d+|ST\d+-\d+|EB\d+-\d+|PRB\d+-\d+)\s*x?\s*(\d+)/i);
+    if (match) {
+      const isIdFirst = match[1].match(/^[A-Z]/i);
+      const cardId = isIdFirst ? match[1].toUpperCase() : match[2].toUpperCase();
+      const qty = parseInt(isIdFirst ? match[2] : match[1]);
+      cards[cardId] = (cards[cardId] || 0) + qty;
+    } else {
+      // Try just card ID with qty=1
+      const idMatch = line.match(/(OP\d+-\d+|ST\d+-\d+|EB\d+-\d+|PRB\d+-\d+)/i);
+      if (idMatch) cards[idMatch[1].toUpperCase()] = 1;
+    }
+  });
+
+  if (Object.keys(cards).length > 0) {
+    renderShoppingList({ name: 'Custom Deck', leader: '', cards });
+  }
+}
+
+function renderShoppingList(deck) {
+  const collection = getCollection();
+  const summary = document.getElementById('shopping-summary');
+  const table = document.getElementById('shopping-table');
+  const tbody = document.getElementById('shopping-tbody');
+
+  // Build owned lookup: { card_id: total_qty_across_all_variants }
+  const ownedLookup = {};
+  for (const [key, qty] of Object.entries(collection)) {
+    const cardId = key.split('|')[0];
+    ownedLookup[cardId] = (ownedLookup[cardId] || 0) + qty;
+  }
+
+  let rows = [];
+  let totalOwned = 0;
+  let totalNeeded = 0;
+  let totalCost = 0;
+
+  for (const [cardId, needed] of Object.entries(deck.cards)) {
+    const owned = ownedLookup[cardId] || 0;
+    const toBuy = Math.max(0, needed - owned);
+    const cached = priceCache[cardId];
+    const priceUSD = cached ? (cached.market_price || 0) : 0;
+    const priceSGD = priceUSD * fxRate;
+    const subtotal = priceSGD * toBuy;
+    const cardName = cached ? cached.name : cardId;
+    const rarity = cached ? cached.rarity : '?';
+
+    totalOwned += Math.min(owned, needed);
+    totalNeeded += needed;
+    totalCost += subtotal;
+
+    rows.push({ cardId, cardName, rarity, needed, owned: Math.min(owned, needed), toBuy, priceSGD, subtotal });
+  }
+
+  // Sort: cards to buy first, then by subtotal desc
+  rows.sort((a, b) => {
+    if (a.toBuy > 0 && b.toBuy === 0) return -1;
+    if (a.toBuy === 0 && b.toBuy > 0) return 1;
+    return b.subtotal - a.subtotal;
+  });
+
+  summary.style.display = 'grid';
+  table.style.display = 'table';
+
+  document.getElementById('shop-owned').textContent = `${totalOwned}/${totalNeeded}`;
+  document.getElementById('shop-needed').textContent = rows.filter(r => r.toBuy > 0).length + ' cards';
+  document.getElementById('shop-cost').textContent = `S$${totalCost.toFixed(2)}`;
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>
+        <div style="font-weight:500">${escHtml(r.cardName)}</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted)">${r.cardId}</div>
+      </td>
+      <td><span class="rarity-dot rarity-${r.rarity}"></span>${r.rarity}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${r.needed}</td>
+      <td><span class="${r.owned >= r.needed ? 'owned-badge' : ''}" style="font-family:'JetBrains Mono',monospace">${r.owned}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace; font-weight:600; color:${r.toBuy > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}">${r.toBuy > 0 ? r.toBuy : '✓'}</td>
+      <td style="font-family:'JetBrains Mono',monospace">S$${r.priceSGD.toFixed(2)}</td>
+      <td style="font-family:'JetBrains Mono',monospace; font-weight:${r.subtotal > 0 ? '600' : '400'}; color:${r.subtotal > 5 ? 'var(--accent-gold)' : 'var(--text-secondary)'}">S$${r.subtotal.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+
+// ════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+  event.target.classList.add('active');
+
+  // Re-render charts when switching to charts tab (canvas resize fix)
+  if (tabId === 'charts') {
+    setTimeout(() => {
+      if (priceChart) priceChart.resize();
+      if (portfolioChart) portfolioChart.resize();
+    }, 100);
+  }
+}
+
+
+// ════════════════════════════════════════
+// REFRESH
+// ════════════════════════════════════════
+async function refreshPrices() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '↻ Refreshing...';
+  btn.disabled = true;
+
+  // Clear cache to force re-fetch
+  localStorage.removeItem(PRICE_CACHE_KEY);
+  priceCache = {};
+
+  const collection = getCollection();
+  if (Object.keys(collection).length > 0) {
+    document.getElementById('portfolio-loading').style.display = 'flex';
+    document.getElementById('portfolio-table').style.display = 'none';
+
+    await fetchPrices(collection);
+    buildPortfolio(collection);
+    renderPortfolio();
+    updateSummary(portfolioData, fxRate);
+    saveSnapshot();
+    renderPortfolioHistoryChart();
+    buildChartCardGrid();
+    if (selectedDeck !== 'custom') {
+      renderShoppingList(DECK_LISTS[selectedDeck]);
+    }
+  }
+
+  btn.textContent = '↻ Refresh';
+  btn.disabled = false;
+}
+
+
+// ════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Listen for chart range changes
+document.getElementById('chart-range')?.addEventListener('change', () => {
+  const selected = document.querySelector('.card-select-item.selected');
+  if (selected) renderPriceChart(selected.dataset.cardId);
+});
+</script>
+
+</body>
+</html>
